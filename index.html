@@ -1,138 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hapics Landing Page</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            overflow: auto; /* Allow scrolling */
-            color: #fff;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-            background-size: cover;
-            height: 100vh; /* Set body height to full viewport height */
-        }
-
-        video {
-            object-fit: cover;
-            width: 100%;
-            height: 100%;
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: -1;
-        }
-
-        .content {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            width: 100%;
-            height: 70%; /* Set content height to full viewport height */
-        }
-
-        h1, p {
-            color: #d3dfe6;
-        }
-
-        .server-links {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .server-link {
-            display: flex;
-            align-items: center;
-            margin: 10px 10px;
-            padding: 10px 20px;
-            text-decoration: none;
-            border-radius: 5px;
-            font-size: 18px;
-            cursor: pointer;
-            color: #fff;
-            transition: opacity 0.3s ease;
-        }
-
-        .server-link img {
-            margin-right: 10px;
-            max-height: 24px;
-        }
-
-        .server-link.email {
-            background-color: #dc3545;
-        }
-
-        .server-link.linkedin {
-            background-color: #0077b5;
-        }
-
-        .server-link.plex {
-            background-color: #e5a00d;
-        }
-
-        .server-link.smart {
-            background-color: #41B883;
-        }
-
-        .server-link.qbit {
-            background-color: #4E9AAB;
-        }
-
-        .server-link:hover {
-            opacity: 0.8;
-        }
-
-        @media (max-width: 767px) {
-    video {
-        display: none;
-    }
-
-    body {
-        background-image: url('0004.png');
-        background-position: 50%; /* Center the background image */
-
-    }
-
-    .content {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
-        width: 100%;
-        height: 70%; /* Set content height to full viewport height */
-    }
-}
-
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HAPICS Games</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-
 <body>
-    <video autoplay muted loop>
-        <source src="Northern_lights.mp4" type="video/mp4">
-        Your browser does not support the video tag.
-    </video>
+  <main class="page">
+    <header class="hero">
+      <p class="eyebrow">HAPICS</p>
+      <h1>Games</h1>
+      <p class="subtitle">Pick a game and play</p>
+    </header>
 
-    <div class="content">
-        <h1>Welcome to HapiCS</h1>
-        <p>Access your servers below:</p>
-        <div class="server-links">
-            <a class="server-link email" href="mailto:claudiu.sandu@hapics.uk">
-                Email Us
-            </a>
-            <a class="server-link linkedin" href="https://www.linkedin.com/in/sandu-claudiu-4411ba130" target="_blank">
-                <img src="LinkedIn_logo.png" alt="LinkedIn Logo">
-                LinkedIn
-            </a>
-        </div>
-    </div>
+    <section class="games-grid" aria-label="Available games">
+      <!-- To add a new game, copy a game-card block and update:
+           1. href       - path to the game (e.g. "/newgame/")
+           2. span.emoji - icon for the game
+           3. h2         - game name
+           4. p          - short description
+           5. Remove the "coming-soon" class if the game is live -->
+
+      <a href="/snake/" class="game-card">
+        <span class="game-icon" aria-hidden="true">&#x1F40D;</span>
+        <h2 class="game-title">Snake</h2>
+        <p class="game-desc">Classic and advanced modes with leaderboards</p>
+        <span class="play-tag">Play <span class="arrow">&rarr;</span></span>
+      </a>
+
+      <div class="game-card coming-soon">
+        <span class="game-icon" aria-hidden="true">&#x1F9F1;</span>
+        <h2 class="game-title">Tetris</h2>
+        <p class="game-desc">Stack blocks, clear lines, chase high scores</p>
+        <span class="soon-tag">Coming Soon</span>
+      </div>
+
+      <div class="game-card coming-soon">
+        <span class="game-icon" aria-hidden="true">&#x1F522;</span>
+        <h2 class="game-title">Sudoku</h2>
+        <p class="game-desc">Three difficulty levels with pencil marks</p>
+        <span class="soon-tag">Coming Soon</span>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>&copy; HAPICS 2026</p>
+    </footer>
+  </main>
 </body>
-
 </html>

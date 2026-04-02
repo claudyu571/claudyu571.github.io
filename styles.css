@@ -1,0 +1,226 @@
+:root {
+  color-scheme: dark;
+  font-family: "Trebuchet MS", "Gill Sans", sans-serif;
+  --bg: #0c1311;
+  --bg-accent: #12201b;
+  --panel: rgba(18, 30, 26, 0.92);
+  --panel-border: rgba(142, 179, 144, 0.22);
+  --text: #edf4ee;
+  --muted: #9eb4a1;
+  --accent: #74d680;
+  --accent-strong: #2d8f47;
+  --danger: #ff7878;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(116, 214, 128, 0.14), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(73, 134, 96, 0.18), transparent 34%),
+    linear-gradient(180deg, var(--bg-accent), var(--bg));
+  color: var(--text);
+}
+
+.page {
+  min-height: 100vh;
+  padding: 48px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Hero ── */
+
+.hero {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.hero h1 {
+  font-size: clamp(2.4rem, 5vw, 3.5rem);
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+/* ── Game Cards Grid ── */
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+  max-width: 920px;
+  width: 100%;
+}
+
+.game-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(10px);
+  padding: 36px 24px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+a.game-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(116, 214, 128, 0.25);
+}
+
+a.game-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  transform: translateY(-4px);
+}
+
+/* ── Card Elements ── */
+
+.game-icon {
+  font-size: 3rem;
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.game-title {
+  font-size: clamp(1.3rem, 2.5vw, 1.6rem);
+  margin: 0 0 8px;
+}
+
+.game-desc {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin: 0 0 20px;
+  flex: 1;
+}
+
+.play-tag {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.play-tag .arrow {
+  display: inline-block;
+  transition: transform 200ms ease;
+}
+
+a.game-card:hover .play-tag .arrow {
+  transform: translateX(3px);
+}
+
+/* ── Coming Soon ── */
+
+.coming-soon {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.soon-tag {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border: 1px solid rgba(142, 179, 144, 0.18);
+  border-radius: 999px;
+  padding: 5px 14px;
+}
+
+/* ── Footer ── */
+
+.footer {
+  margin-top: auto;
+  padding-top: 48px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.footer p {
+  margin: 0;
+}
+
+/* ── Entrance Animation ── */
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.game-card {
+  animation: cardIn 0.4s ease-out both;
+}
+
+.game-card:nth-child(2) { animation-delay: 0.08s; }
+.game-card:nth-child(3) { animation-delay: 0.16s; }
+
+/* ── Responsive ── */
+
+@media (max-width: 720px) {
+  .page {
+    padding: 28px 14px 14px;
+  }
+
+  .hero {
+    margin-bottom: 32px;
+  }
+
+  .games-grid {
+    gap: 14px;
+  }
+
+  .game-card {
+    padding: 28px 18px 22px;
+  }
+}
+
+/* ── Reduced Motion ── */
+
+@media (prefers-reduced-motion: reduce) {
+  .game-card {
+    animation: none;
+  }
+
+  a.game-card:hover,
+  a.game-card:focus-visible {
+    transform: none;
+  }
+
+  .play-tag .arrow {
+    transition: none;
+  }
+}

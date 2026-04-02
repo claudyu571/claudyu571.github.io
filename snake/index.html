@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Snake</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="play-area panel">
+        <div class="play-header">
+          <div>
+            <a href="/" class="back-link">&larr; All Games</a>
+            <p class="eyebrow" id="mode-eyebrow">Classic Mode</p>
+            <h1>Snake</h1>
+          </div>
+          <button id="change-player-btn" class="secondary-btn" type="button">
+            Change Player
+          </button>
+        </div>
+        <div class="stats">
+          <div class="stat-card">
+            <span class="stat-label">Player</span>
+            <span id="player-display" class="stat-value">-</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Score</span>
+            <span id="score" class="stat-value">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Best</span>
+            <span id="best-score" class="stat-value">0</span>
+          </div>
+          <div class="stat-card status-card">
+            <span class="stat-label">Status</span>
+            <span id="status" class="stat-value">Waiting</span>
+          </div>
+          <div id="boost-card" class="stat-card hidden">
+            <span class="stat-label">Boost</span>
+            <span id="boost-display" class="stat-value">1&times;</span>
+          </div>
+        </div>
+        <div id="board-frame" class="board-frame">
+          <canvas id="game" aria-label="Snake game board" role="img"></canvas>
+          <div id="board-overlay" class="board-overlay hidden" aria-live="polite">
+            <h2 id="overlay-title"></h2>
+            <p id="overlay-message"></p>
+          </div>
+        </div>
+
+        <div id="dpad" class="dpad" aria-label="Directional controls">
+          <button id="dpad-up"    class="dpad-btn" type="button" aria-label="Up">▲</button>
+          <div class="dpad-middle">
+            <button id="dpad-left"  class="dpad-btn" type="button" aria-label="Left">◀</button>
+            <div class="dpad-center"></div>
+            <button id="dpad-right" class="dpad-btn" type="button" aria-label="Right">▶</button>
+          </div>
+          <button id="dpad-down"  class="dpad-btn" type="button" aria-label="Down">▼</button>
+        </div>
+      </section>
+
+      <aside class="sidebar">
+        <section class="panel controls-panel">
+          <div class="mode-toggle" role="group" aria-label="Game mode">
+            <button id="mode-classic-btn" class="mode-toggle-btn active" type="button" aria-pressed="true">Classic</button>
+            <button id="mode-advanced-btn" class="mode-toggle-btn" type="button" aria-pressed="false">Advanced</button>
+          </div>
+          <div class="controls">
+            <button id="pause-btn" type="button">Pause</button>
+            <button id="restart-btn" type="button">Restart</button>
+          </div>
+          <div id="advanced-options" class="advanced-options hidden">
+            <label class="toggle-label">
+              <input id="wrap-toggle" type="checkbox" />
+              <span>Wrap-around walls</span>
+            </label>
+          </div>
+          <p id="help" class="help">
+            Move with Arrow keys or WASD. Pause with Space or P. Restart with R.
+          </p>
+          <div id="gem-help" class="gem-help hidden">
+            <p class="gem-help-intro">Gems appear after eating food and vanish after ~8s.</p>
+            <ul class="gem-legend">
+              <li><span class="gem-pip" style="--gem-color: #ffd700"></span>Gold &mdash; +5 points</li>
+              <li><span class="gem-pip" style="--gem-color: #00cfff"></span>Cyan &mdash; shrink snake</li>
+              <li><span class="gem-pip" style="--gem-color: #ff8800"></span>Orange &mdash; speed boost</li>
+              <li><span class="gem-pip" style="--gem-color: #aa44ff"></span>Purple &mdash; slow down</li>
+              <li><span class="gem-pip" style="--gem-color: #ff44aa"></span>Pink &mdash; 2&times; score (5 food)</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="leaderboard panel" aria-label="Leaderboard">
+          <div class="leaderboard-header">
+            <h2>Leaderboard</h2>
+            <span id="leaderboard-mode-note" class="leaderboard-note">Top 5 &middot; Classic</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Player</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-body"></tbody>
+          </table>
+        </section>
+      </aside>
+    </main>
+    <div id="name-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal">
+        <h2 id="modal-title">Enter your name</h2>
+        <p>This name will be used on the leaderboard.</p>
+        <div class="modal-field">
+          <label class="modal-label" for="player-name">Username</label>
+          <input
+            id="player-name"
+            type="text"
+            maxlength="20"
+            placeholder="Your name"
+            autocomplete="nickname"
+          />
+          <div id="name-error" class="error" role="alert"></div>
+        </div>
+        <div class="modal-actions">
+          <button id="start-btn" type="button">Start</button>
+        </div>
+      </div>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="sounds.js" defer></script>
+    <script src="logic.js" defer></script>
+    <script src="main.js" defer></script>
+  </body>
+</html>
