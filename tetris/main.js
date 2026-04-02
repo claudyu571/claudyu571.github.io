@@ -41,10 +41,12 @@ let gridCache = null; // offscreen canvas for static grid lines
 
 // ─── Multiplayer state ────────────────────────────────────────────────────────
 let multiplayerMode = false;
-let mpSyncTimer = 0;          // countdown until next Firebase sync
-let mpGameStarting = false;   // guard against double-start race
-let mpReady = false;          // this player's ready state in lobby
-let opponentState = null;     // latest data from Firebase for the opponent
+let mpSyncTimer = 0;           // countdown until next Firebase sync
+let mpGameStarting = false;    // guard against double-start race
+let mpReady = false;           // this player's ready state in lobby
+let opponentState = null;      // latest data from Firebase for the opponent
+let mpCountdownSecs = 0;       // pre-game countdown value (0 = not counting)
+let mpCountdownInterval = null; // setInterval handle for the countdown
 
 // ─── DOM References ───────────────────────────────────────────────────────────
 
@@ -62,6 +64,7 @@ let overlayMpMenu, overlayMpJoin, overlayMpWaiting, overlayMpLobby, overlayMpRes
 let elMpRoomCodeDisplay, elMpRoomInput, elMpJoinError;
 let elMpP1Name, elMpP2Name, elMpP1Status, elMpP2Status;
 let elMpReadyBtn, elMpLobbyCodeDisplay;
+let elMpCountdownWrap, elMpCountdownNum;
 let elMpResultTitle, elMpResultScore, elMpResultOppScore;
 let elOppBoard, elOppCtx, elOppNameDisplay, elOppScore, elOppLevel;
 let elMpOpponentWrap;
@@ -1104,6 +1107,32 @@ function mpUpdateLobby(room) {
   }
 }
 
+function mpBeginCountdown(room) {
+  if (mpCountdownInterval || mpGameStarting) return; // already running
+  mpCountdownSecs = 10;
+  if (elMpCountdownWrap) elMpCountdownWrap.hidden = false;
+  if (elMpCountdownNum)  elMpCountdownNum.textContent = mpCountdownSecs;
+
+  mpCountdownInterval = setInterval(() => {
+    mpCountdownSecs--;
+    if (elMpCountdownNum) elMpCountdownNum.textContent = mpCountdownSecs;
+    if (mpCountdownSecs <= 0) {
+      mpCancelCountdown();
+      mpStartGame(room);
+    }
+  }, 1000);
+}
+
+function mpCancelCountdown() {
+  if (mpCountdownInterval) {
+    clearInterval(mpCountdownInterval);
+    mpCountdownInterval = null;
+  }
+  mpCountdownSecs = 0;
+  if (elMpCountdownWrap) elMpCountdownWrap.hidden = true;
+  if (elMpCountdownNum)  elMpCountdownNum.textContent = '';
+}
+
 function mpStartGame(room) {
   if (mpGameStarting || state === 'PLAYING') return;
   mpGameStarting = true;
@@ -1144,6 +1173,7 @@ function mpShowResult(won, oppFinalScore) {
 
 async function mpExitToMenu() {
   cancelAnimationFrame(animFrame);
+  mpCancelCountdown();
   mpGameStarting  = false;
   multiplayerMode = false;
   opponentState   = null;
@@ -1182,11 +1212,19 @@ function handleRoomUpdate({ data, deleted }) {
     if (room.status === 'lobby') mpUpdateLobby(room);
   }
 
-  // Both ready → player 1 triggers game start, player 2 waits for 'playing'
-  if (room.status === 'lobby' && room.player1?.ready && room.player2?.ready) {
-    mpStartGame(room);
+  // Both ready → start countdown; if either un-readies, cancel it
+  if (room.status === 'lobby') {
+    const bothReady = room.player1?.ready && room.player2?.ready;
+    if (bothReady) {
+      mpBeginCountdown(room);
+    } else {
+      mpCancelCountdown();
+    }
   }
+
+  // Player 2 path: once status flips to 'playing', start immediately
   if (room.status === 'playing' && !mpGameStarting && state !== 'PLAYING' && state !== 'GAME_OVER') {
+    mpCancelCountdown();
     mpStartGame(room);
   }
 
@@ -1354,8 +1392,10 @@ function init() {
   elMpP2Name          = document.getElementById('mp-p2-name');
   elMpP1Status        = document.getElementById('mp-p1-status');
   elMpP2Status        = document.getElementById('mp-p2-status');
-  elMpReadyBtn        = document.getElementById('btn-mp-ready');
+  elMpReadyBtn         = document.getElementById('btn-mp-ready');
   elMpLobbyCodeDisplay = document.getElementById('mp-lobby-code-display');
+  elMpCountdownWrap    = document.getElementById('mp-countdown-wrap');
+  elMpCountdownNum     = document.getElementById('mp-countdown-num');
   elMpResultTitle     = document.getElementById('mp-result-title');
   elMpResultScore     = document.getElementById('mp-result-score');
   elMpResultOppScore  = document.getElementById('mp-result-opp-score');
@@ -1452,6 +1492,7 @@ function init() {
   // Result screen
   bindBtn('btn-mp-play-again', async () => {
     cancelAnimationFrame(animFrame);
+    mpCancelCountdown();
     mpGameStarting  = false;
     multiplayerMode = false;
     opponentState   = null;
