@@ -58,8 +58,8 @@ let elFinalScore, elBestScore, elNewBest, elNameInput;
 let elLbBody, elSideLbBody;
 
 // Multiplayer DOM refs
-let overlayMpMenu, overlayMpWaiting, overlayMpLobby, overlayMpResult;
-let elMpRoomCodeDisplay, elMpRoomInput, elMpJoinError, elMpJoinForm;
+let overlayMpMenu, overlayMpJoin, overlayMpWaiting, overlayMpLobby, overlayMpResult;
+let elMpRoomCodeDisplay, elMpRoomInput, elMpJoinError;
 let elMpP1Name, elMpP2Name, elMpP1Status, elMpP2Status;
 let elMpReadyBtn, elMpLobbyCodeDisplay;
 let elMpResultTitle, elMpResultScore, elMpResultOppScore;
@@ -531,6 +531,7 @@ function render(dt) {
   drawLevelToast();
   drawNextPiece();
   drawHoldPiece();
+  if (multiplayerMode) drawOpponentBoard();
   updateHUD();
 }
 
@@ -996,6 +997,7 @@ function startGame() {
 
 function pauseGame() {
   if (state !== 'PLAYING') return;
+  if (multiplayerMode) return; // no pausing during online multiplayer
   state = 'PAUSED';
   cancelAnimationFrame(animFrame);
   if (elLevelAnnounce) elLevelAnnounce.textContent = 'Game paused';
@@ -1040,19 +1042,20 @@ function triggerGameOver() {
 
 function showOverlay(name) {
   [overlayMenu, overlayPause, overlayGameOver, overlayLeaderboard, overlayControls,
-   overlayMpMenu, overlayMpWaiting, overlayMpLobby, overlayMpResult].forEach(el => {
+   overlayMpMenu, overlayMpJoin, overlayMpWaiting, overlayMpLobby, overlayMpResult].forEach(el => {
     if (el) el.hidden = true;
   });
   const targets = {
     'menu':        overlayMenu,
     'pause':       overlayPause,
     'game-over':   overlayGameOver,
-    'leaderboard':  overlayLeaderboard,
-    'controls':     overlayControls,
-    'mp-menu':      overlayMpMenu,
-    'mp-waiting':   overlayMpWaiting,
-    'mp-lobby':     overlayMpLobby,
-    'mp-result':    overlayMpResult,
+    'leaderboard': overlayLeaderboard,
+    'controls':    overlayControls,
+    'mp-menu':     overlayMpMenu,
+    'mp-join':     overlayMpJoin,
+    'mp-waiting':  overlayMpWaiting,
+    'mp-lobby':    overlayMpLobby,
+    'mp-result':   overlayMpResult,
   };
   if (name && targets[name]) {
     targets[name].hidden = false;
@@ -1327,6 +1330,7 @@ function init() {
 
   // Multiplayer overlays
   overlayMpMenu    = document.getElementById('overlay-mp-menu');
+  overlayMpJoin    = document.getElementById('overlay-mp-join');
   overlayMpWaiting = document.getElementById('overlay-mp-waiting');
   overlayMpLobby   = document.getElementById('overlay-mp-lobby');
   overlayMpResult  = document.getElementById('overlay-mp-result');
@@ -1334,7 +1338,6 @@ function init() {
   elMpRoomCodeDisplay = document.getElementById('mp-room-code-display');
   elMpRoomInput       = document.getElementById('mp-room-input');
   elMpJoinError       = document.getElementById('mp-join-error');
-  elMpJoinForm        = document.getElementById('mp-join-form');
   elMpP1Name          = document.getElementById('mp-p1-name');
   elMpP2Name          = document.getElementById('mp-p2-name');
   elMpP1Status        = document.getElementById('mp-p1-status');
@@ -1395,11 +1398,13 @@ function init() {
     MP.subscribe(handleRoomUpdate);
   });
 
-  // Show join form
+  // Show join overlay
   bindBtn('btn-mp-join-show', () => {
-    if (elMpJoinForm) elMpJoinForm.hidden = !elMpJoinForm.hidden;
-    if (elMpRoomInput) elMpRoomInput.focus();
+    if (elMpRoomInput) elMpRoomInput.value = '';
+    if (elMpJoinError) elMpJoinError.textContent = '';
+    showOverlay('mp-join');
   });
+  bindBtn('btn-mp-join-back', () => showOverlay('mp-menu'));
 
   // Join Room
   const doJoin = async () => {
@@ -1483,6 +1488,11 @@ function init() {
   subscribeToLeaderboard();
   const savedName = getSavedName();
   if (savedName) fetchPersonalBest(savedName);
+
+  // Clean up Firebase room if the tab is closed/refreshed mid-game
+  window.addEventListener('beforeunload', () => {
+    if (MP.roomCode) MP.leaveRoom();
+  });
 
   showOverlay('menu');
   state = 'MENU';
