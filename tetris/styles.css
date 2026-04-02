@@ -134,6 +134,12 @@ body {
 .combo-value { color: var(--piece-T); transition: transform 120ms ease; }
 #combo-box.combo-flash .combo-value { transform: scale(1.25); }
 
+@keyframes combo-appear {
+  0%   { opacity: 0; transform: translateY(-6px) scale(0.88); }
+  100% { opacity: 1; transform: translateY(0)    scale(1); }
+}
+#combo-box.combo-appear { animation: combo-appear 180ms ease forwards; }
+
 /* ─── Board ──────────────────────────────────────────────────────────────────── */
 .board-container {
   position: relative;
@@ -265,6 +271,59 @@ body {
 .lb-table .lb-top td { color: var(--accent); }
 .lb-table .lb-top:first-child td { font-weight: 700; font-size: 0.92rem; }
 .lb-empty { text-align: center; color: var(--muted); padding: 20px !important; }
+
+/* ─── Level Selector ─────────────────────────────────────────────────────────── */
+.level-select-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 2px;
+}
+
+.level-select-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.level-select-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.level-select-ctrl span {
+  font-size: 1.3rem;
+  font-weight: 700;
+  min-width: 2ch;
+  text-align: center;
+  color: var(--accent);
+}
+
+.level-btn {
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 100ms ease;
+}
+
+.level-btn:hover, .level-btn:focus-visible {
+  background: rgba(116,214,128,0.15);
+  border-color: var(--accent);
+  outline: none;
+}
 
 /* ─── Controls ───────────────────────────────────────────────────────────────── */
 .controls-grid {

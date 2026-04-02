@@ -32,6 +32,12 @@ let softDropActive;
 let reducedMotion;
 let scorePops; // floating score popups [{x, y, text, color, life, dy}]
 let combo; // consecutive line clears without a miss
+let lastClearWasTetris; // back-to-back Tetris/T-spin chain tracking
+let lastActionWasRotation; // T-spin detection: was last player action a rotation?
+let startLevel = 0; // starting level chosen in menu
+let prevNextType = null; // cache key for next-piece preview
+let prevHoldKey  = null; // cache key for hold-piece preview (type + dimmed state)
+let gridCache = null; // offscreen canvas for static grid lines
 
 // ─── DOM References ───────────────────────────────────────────────────────────
 
@@ -81,6 +87,11 @@ function resizeCanvas() {
 
   // Patterns are sized to CELL — must rebuild on resize
   for (const k of Object.keys(patternCache)) delete patternCache[k];
+
+  // Rebuild static grid cache and force preview redraws at new size
+  buildGridCache();
+  prevNextType = null;
+  prevHoldKey  = null;
 
   // Redraw whatever state we're in
   if (state === 'PLAYING' || state === 'PAUSED') {
@@ -171,6 +182,24 @@ function buildPattern(ctx, type, color) {
 
 // ─── Rendering ────────────────────────────────────────────────────────────────
 
+function buildGridCache() {
+  const offscreen = document.createElement('canvas');
+  offscreen.width  = BOARD_W;
+  offscreen.height = BOARD_H;
+  const gc = offscreen.getContext('2d');
+  gc.strokeStyle = 'rgba(144,181,147,0.10)';
+  gc.lineWidth = 0.5;
+  gc.beginPath();
+  for (let c = 0; c <= COLS; c++) {
+    gc.moveTo(c * CELL, 0); gc.lineTo(c * CELL, BOARD_H);
+  }
+  for (let r = 0; r <= ROWS; r++) {
+    gc.moveTo(0, r * CELL); gc.lineTo(BOARD_W, r * CELL);
+  }
+  gc.stroke();
+  gridCache = offscreen;
+}
+
 function drawCell(targetCtx, x, y, pieceType, alpha = 1) {
   const piece = PIECES[pieceType];
   const px = x * CELL;
@@ -216,15 +245,8 @@ function drawBoard() {
   ctx.fillStyle = '#09110e';
   ctx.fillRect(0, 0, BOARD_W, BOARD_H);
 
-  // Grid lines
-  ctx.strokeStyle = 'rgba(144,181,147,0.10)';
-  ctx.lineWidth = 0.5;
-  for (let c = 0; c <= COLS; c++) {
-    ctx.beginPath(); ctx.moveTo(c * CELL, 0); ctx.lineTo(c * CELL, BOARD_H); ctx.stroke();
-  }
-  for (let r = 0; r <= ROWS; r++) {
-    ctx.beginPath(); ctx.moveTo(0, r * CELL); ctx.lineTo(BOARD_W, r * CELL); ctx.stroke();
-  }
+  // Grid lines — drawn once to offscreen cache, stamped each frame
+  if (gridCache) ctx.drawImage(gridCache, 0, 0);
 
   // Locked cells
   for (let r = 0; r < ROWS; r++) {
@@ -291,13 +313,15 @@ function getFilledBounds(mat) {
   return { minR, maxR, minC, maxC, w: maxC - minC + 1, h: maxR - minR + 1 };
 }
 
-function drawNextPiece() {
-  if (!nextPiece || !elNextCtx) return;
-  const nc = elNextCanvas.width;
-  const nr = elNextCanvas.height;
-  elNextCtx.clearRect(0, 0, nc, nr);
+function drawPiecePreview(canvasEl, canvasCtx, pieceType, alpha) {
+  if (!canvasCtx || !canvasEl) return;
+  const nc = canvasEl.width;
+  const nr = canvasEl.height;
+  canvasCtx.clearRect(0, 0, nc, nr);
+  if (!pieceType) return;
 
-  const mat = nextPiece.matrix;
+  const piece = PIECES[pieceType];
+  const mat   = piece.matrices[0];
   const pCell = Math.floor(nc / 4);
   const bounds = getFilledBounds(mat);
   const offsetX = Math.floor((nc - bounds.w * pCell) / 2);
@@ -309,47 +333,30 @@ function drawNextPiece() {
       const px = offsetX + (c - bounds.minC) * pCell;
       const py = offsetY + (r - bounds.minR) * pCell;
 
-      elNextCtx.save();
-      elNextCtx.translate(px, py);
-      const pat = buildPattern(elNextCtx, PIECE_PATTERNS[nextPiece.type], nextPiece.color);
-      elNextCtx.fillStyle = pat || nextPiece.color;
-      elNextCtx.fillRect(0, 0, pCell, pCell);
-      elNextCtx.restore();
+      canvasCtx.save();
+      canvasCtx.globalAlpha = alpha !== undefined ? alpha : 1;
+      canvasCtx.translate(px, py);
+      const pat = buildPattern(canvasCtx, PIECE_PATTERNS[pieceType], piece.color);
+      canvasCtx.fillStyle = pat || piece.color;
+      canvasCtx.fillRect(0, 0, pCell, pCell);
+      canvasCtx.restore();
     }
   }
 }
 
+function drawNextPiece() {
+  if (!nextPiece || !elNextCtx) return;
+  if (nextPiece.type === prevNextType) return; // no change — skip redraw
+  prevNextType = nextPiece.type;
+  drawPiecePreview(elNextCanvas, elNextCtx, nextPiece.type, 1);
+}
+
 function drawHoldPiece() {
   if (!elHoldCtx || !elHoldCanvas) return;
-  const nc = elHoldCanvas.width;
-  const nr = elHoldCanvas.height;
-  elHoldCtx.clearRect(0, 0, nc, nr);
-  if (!holdPieceType) return;
-
-  const piece = PIECES[holdPieceType];
-  const mat = piece.matrices[0];
-  const pCell = Math.floor(nc / 4);
-  const bounds = getFilledBounds(mat);
-  const offsetX = Math.floor((nc - bounds.w * pCell) / 2);
-  const offsetY = Math.floor((nr - bounds.h * pCell) / 2);
-
-  const alpha = holdUsed ? 0.4 : 1;
-
-  for (let r = 0; r < mat.length; r++) {
-    for (let c = 0; c < mat[r].length; c++) {
-      if (!mat[r][c]) continue;
-      const px = offsetX + (c - bounds.minC) * pCell;
-      const py = offsetY + (r - bounds.minR) * pCell;
-
-      elHoldCtx.save();
-      elHoldCtx.globalAlpha = alpha;
-      elHoldCtx.translate(px, py);
-      const pat = buildPattern(elHoldCtx, PIECE_PATTERNS[holdPieceType], piece.color);
-      elHoldCtx.fillStyle = pat || piece.color;
-      elHoldCtx.fillRect(0, 0, pCell, pCell);
-      elHoldCtx.restore();
-    }
-  }
+  const key = holdPieceType ? (holdPieceType + (holdUsed ? '_dim' : '')) : null;
+  if (key === prevHoldKey) return; // no change — skip redraw
+  prevHoldKey = key;
+  drawPiecePreview(elHoldCanvas, elHoldCtx, holdPieceType, holdUsed ? 0.4 : 1);
 }
 
 function spawnScorePop(text, color, row) {
@@ -435,7 +442,11 @@ function updateHUD() {
   if (elLines) elLines.textContent = totalLines;
   if (elComboBox) {
     if (combo >= 2) {
-      elComboBox.style.display = '';
+      if (elComboBox.style.display === 'none') {
+        elComboBox.style.display = '';
+        elComboBox.classList.add('combo-appear');
+        setTimeout(() => elComboBox.classList.remove('combo-appear'), 200);
+      }
       elCombo.textContent = `×${combo}`;
     } else {
       elComboBox.style.display = 'none';
@@ -456,6 +467,7 @@ function spawnNext() {
   lockTimer = null;
   lockMoves = 0;
   holdUsed = false;
+  lastActionWasRotation = false;
 
   if (!isValidPosition(board, activePiece)) {
     triggerGameOver();
@@ -466,6 +478,7 @@ function tryMove(dx, dy) {
   if (!activePiece) return false;
   if (isValidPosition(board, activePiece, dx, dy)) {
     activePiece = { ...activePiece, x: activePiece.x + dx, y: activePiece.y + dy };
+    if (dx !== 0) lastActionWasRotation = false; // lateral move breaks T-spin eligibility
     if (dy === 0 && lockTimer !== null && lockMoves < 15) {
       // Reset lock delay on successful lateral move while grounded
       lockTimer = LOCK_DELAY;
@@ -481,11 +494,30 @@ function tryRotateActive(dir) {
   const rotated = tryRotate(board, activePiece, dir);
   if (rotated) {
     activePiece = rotated;
+    lastActionWasRotation = true; // track for T-spin detection
     if (lockTimer !== null && lockMoves < 15) {
       lockTimer = LOCK_DELAY;
       lockMoves++;
     }
   }
+}
+
+function checkTSpin(boardState, piece) {
+  if (piece.type !== 'T') return 'none';
+  if (!lastActionWasRotation) return 'none';
+
+  // Check the 4 diagonal corners around the T-piece center (matrix[1][1])
+  const cx = piece.x + 1;
+  const cy = piece.y + 1;
+  const corners = [[cy-1,cx-1],[cy-1,cx+1],[cy+1,cx-1],[cy+1,cx+1]];
+
+  let filled = 0;
+  for (const [r, c] of corners) {
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) filled++; // wall counts as filled
+    else if (boardState[r][c]) filled++;
+  }
+
+  return filled >= 3 ? 'tspin' : 'none';
 }
 
 function holdCurrentPiece() {
@@ -508,9 +540,7 @@ function holdCurrentPiece() {
   if (!isValidPosition(board, activePiece)) {
     triggerGameOver();
   }
-
-  drawHoldPiece();
-  drawNextPiece();
+  // render() will call drawHoldPiece()/drawNextPiece() next frame via cache-aware guards
 }
 
 function checkSamePieceBonus(board, lineIndices) {
@@ -529,6 +559,7 @@ function checkSamePieceBonus(board, lineIndices) {
 
 function hardDrop() {
   if (!activePiece) return;
+  lastActionWasRotation = false; // hard drop clears T-spin eligibility
   let dropped = 0;
   while (isValidPosition(board, activePiece, 0, 1)) {
     activePiece = { ...activePiece, y: activePiece.y + 1 };
@@ -539,7 +570,13 @@ function hardDrop() {
   lockActive();
 }
 
+// T-spin score table: [lines cleared 0..3]
+const TSPIN_SCORE = [400, 800, 1200, 1600];
+
 function lockActive() {
+  // Check T-spin BEFORE locking (we need original board + piece position)
+  const tspinType = checkTSpin(board, activePiece);
+
   board = lockPiece(board, activePiece);
   const indices = getClearedLineIndices(board);
 
@@ -567,7 +604,17 @@ function lockActive() {
       const prev = level;
       totalLines += linesCleared;
       const newLevel = calcLevel(totalLines);
-      let gained = calcScore(linesCleared, level);
+
+      // Base score: T-spin overrides normal line-clear scoring
+      let gained = tspinType === 'tspin'
+        ? (TSPIN_SCORE[linesCleared] || TSPIN_SCORE[TSPIN_SCORE.length - 1]) * (level + 1)
+        : calcScore(linesCleared, level);
+
+      // Back-to-back bonus (1.5×): consecutive Tetris or T-spin clears
+      const isDifficult = (linesCleared === 4) || (tspinType === 'tspin' && linesCleared > 0);
+      const backToBack = isDifficult && lastClearWasTetris;
+      if (backToBack) gained = Math.floor(gained * 1.5);
+      lastClearWasTetris = isDifficult; // update chain tracker
 
       // Apply combo multiplier (starts at combo 2)
       const comboMultiplier = combo >= 2 ? 1 + (combo - 1) * 0.5 : 1;
@@ -582,29 +629,44 @@ function lockActive() {
       announceScore();
       if (level > prev) announceLevel();
 
-      let label = LINE_LABELS[linesCleared];
-      if (samePiece && linesCleared > 0) label += '\nSAME PIECE!';
+      // Toast label
+      let label = LINE_LABELS[linesCleared] || '';
+      if (tspinType === 'tspin') {
+        label = linesCleared > 0 ? `T-SPIN ${label}`.trim() : 'T-SPIN!';
+      } else if (samePiece && linesCleared > 0) {
+        label += '\nSAME PIECE!';
+      }
+      if (backToBack && linesCleared > 0) label = 'B2B!\n' + label;
       showToast(label);
       if (level > prev) showLevelToast(level);
 
-      // Floating score popup at the cleared row
+      // Floating score popups
       const midRow = indices[Math.floor(indices.length / 2)];
-      let popText = `+${gained}`;
       let popColor = '#edf4ee';
-      if (linesCleared === 4) popColor = '#FFE600';
+      if (tspinType === 'tspin') popColor = '#BF5FFF';
+      else if (linesCleared === 4) popColor = '#FFE600';
       else if (linesCleared >= 2) popColor = '#00F5FF';
-      spawnScorePop(popText, popColor, midRow);
+      if (backToBack) popColor = '#FF9A3C';
+      spawnScorePop(`+${gained}`, popColor, midRow);
 
-      if (combo >= 2) {
-        spawnScorePop(`COMBO ×${combo}`, '#ff44aa', midRow + 1);
-      }
-      if (samePiece && linesCleared > 0) {
-        spawnScorePop('SAME PIECE!', '#FFE600', midRow - 1);
-      }
+      if (tspinType === 'tspin') spawnScorePop('T-SPIN!', '#BF5FFF', midRow - 1);
+      if (backToBack && linesCleared > 0) spawnScorePop('B2B!', '#FF9A3C', midRow - (tspinType === 'tspin' ? 2 : 1));
+      if (combo >= 2) spawnScorePop(`COMBO ×${combo}`, '#ff44aa', midRow + 1);
+      if (samePiece && linesCleared > 0 && tspinType === 'none') spawnScorePop('SAME PIECE!', '#FFE600', midRow - 1);
 
       spawnNext();
     }, reducedMotion ? 0 : 200);
   } else {
+    if (tspinType === 'tspin') {
+      // T-spin with no line clear: still counts as difficult for B2B, awards points
+      const tspinPoints = TSPIN_SCORE[0] * (level + 1);
+      score += tspinPoints;
+      lastClearWasTetris = true;
+      spawnScorePop('T-SPIN!', '#BF5FFF', Math.floor(ROWS / 2));
+      showToast('T-SPIN!');
+    } else {
+      lastClearWasTetris = false; // non-difficult clear breaks B2B chain
+    }
     combo = 0;
     spawnNext();
   }
@@ -641,13 +703,15 @@ function gameLoop(timestamp) {
 
   // Gravity
   dropTimer -= softDropActive ? dt * 10 : dt;
-  if (softDropActive && dropTimer > 0) score += 1;
 
   if (dropTimer <= 0) {
     dropTimer = calcDropInterval(level);
-    if (!tryMove(0, 1)) {
+    const movedDown = tryMove(0, 1);
+    if (!movedDown) {
       // Piece is grounded — start lock delay
       if (lockTimer === null) lockTimer = LOCK_DELAY;
+    } else if (softDropActive) {
+      score += 1; // 1 point per cell soft-dropped
     }
   }
 
@@ -763,12 +827,16 @@ function setupMobileControls() {
 
   btn('btn-left',   () => { if (state === 'PLAYING') tryMove(-1, 0); });
   btn('btn-right',  () => { if (state === 'PLAYING') tryMove(1, 0); });
-  btn('btn-rotate', () => { if (state === 'PLAYING') tryRotateActive(1); });
+  btn('btn-up',     () => { if (state === 'PLAYING') tryRotateActive(1); });
   btn('btn-rcw',    () => { if (state === 'PLAYING') tryRotateActive(1); });
   btn('btn-rccw',   () => { if (state === 'PLAYING') tryRotateActive(-1); });
   btn('btn-down',   () => { if (state === 'PLAYING') tryMove(0, 1); });
   btn('btn-drop',   () => { if (state === 'PLAYING') hardDrop(); });
   btn('btn-hold',   () => { if (state === 'PLAYING') holdCurrentPiece(); });
+  btn('btn-pause',  () => {
+    if (state === 'PLAYING') pauseGame();
+    else if (state === 'PAUSED') resumeGame();
+  });
 }
 
 // ─── State Transitions ────────────────────────────────────────────────────────
@@ -776,9 +844,9 @@ function setupMobileControls() {
 function startGame() {
   board = createBoard(ROWS, COLS);
   score = 0;
-  level = 0;
-  totalLines = 0;
-  dropTimer = calcDropInterval(0);
+  level = startLevel;
+  totalLines = startLevel * 10;
+  dropTimer = calcDropInterval(startLevel);
   lockTimer = null;
   lockMoves = 0;
   toastText = '';
@@ -792,6 +860,10 @@ function startGame() {
   holdUsed = false;
   scorePops = [];
   combo = 0;
+  lastClearWasTetris = false;
+  lastActionWasRotation = false;
+  prevNextType = null;
+  prevHoldKey  = null;
   lastTimestamp = null;
   keysDown.clear();
 
@@ -810,6 +882,7 @@ function pauseGame() {
   if (state !== 'PLAYING') return;
   state = 'PAUSED';
   cancelAnimationFrame(animFrame);
+  if (elLevelAnnounce) elLevelAnnounce.textContent = 'Game paused';
   showOverlay('pause');
 }
 
@@ -817,6 +890,7 @@ function resumeGame() {
   if (state !== 'PAUSED') return;
   showOverlay(null);
   state = 'PLAYING';
+  if (elLevelAnnounce) elLevelAnnounce.textContent = 'Game resumed';
   lastTimestamp = null;
   animFrame = requestAnimationFrame(gameLoop);
   canvas.focus();
@@ -1015,6 +1089,15 @@ function init() {
   elNameInput  = document.getElementById('name-input');
   elLbBody     = document.getElementById('lb-body');
   elSideLbBody = document.getElementById('side-lb-body');
+
+  // Starting level selector
+  const elStartLevelDisplay = document.getElementById('start-level-display');
+  bindBtn('btn-level-dec', () => {
+    if (startLevel > 0) { startLevel--; if (elStartLevelDisplay) elStartLevelDisplay.textContent = startLevel; }
+  });
+  bindBtn('btn-level-inc', () => {
+    if (startLevel < 15) { startLevel++; if (elStartLevelDisplay) elStartLevelDisplay.textContent = startLevel; }
+  });
 
   // Menu buttons
   bindBtn('btn-play',   () => startGame());

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1" />
   <title>TETRIS</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -46,6 +46,14 @@
     <div id="overlay-menu" class="overlay" role="dialog" aria-modal="true" aria-labelledby="menu-title">
       <h1 class="overlay-title" id="menu-title">TETRIS</h1>
       <p class="overlay-subtitle">USE ARROW KEYS OR WASD TO PLAY</p>
+      <div class="level-select-row" aria-label="Starting level selector">
+        <span class="level-select-label">START LEVEL</span>
+        <div class="level-select-ctrl">
+          <button id="btn-level-dec" class="level-btn" aria-label="Decrease starting level">&#8722;</button>
+          <span id="start-level-display" aria-live="polite">0</span>
+          <button id="btn-level-inc" class="level-btn" aria-label="Increase starting level">&#43;</button>
+        </div>
+      </div>
       <button id="btn-play" class="btn btn-primary">PLAY</button>
       <button id="btn-lb"   class="btn btn-secondary">LEADERBOARD</button>
       <button id="btn-how"  class="btn btn-secondary">HOW TO PLAY</button>
@@ -127,15 +135,17 @@
 
 <nav class="mobile-controls" aria-label="Touch controls">
   <div class="dpad" role="group" aria-label="Directional controls">
+    <button id="btn-up"    class="dpad-btn dpad-up"    aria-label="Rotate clockwise">&#8593;</button>
     <button id="btn-left"  class="dpad-btn dpad-left"  aria-label="Move left">&#8592;</button>
     <button id="btn-right" class="dpad-btn dpad-right" aria-label="Move right">&#8594;</button>
     <button id="btn-down"  class="dpad-btn dpad-down"  aria-label="Soft drop">&#8595;</button>
   </div>
   <div class="action-btns" role="group" aria-label="Action buttons">
-    <button id="btn-hold" class="action-btn" aria-label="Hold piece">HOLD</button>
-    <button id="btn-rcw"  class="action-btn" aria-label="Rotate clockwise">ROT CW</button>
-    <button id="btn-rccw" class="action-btn" aria-label="Rotate counter-clockwise">ROT CCW</button>
-    <button id="btn-drop" class="action-btn" aria-label="Hard drop">DROP</button>
+    <button id="btn-hold"  class="action-btn" aria-label="Hold piece">HOLD</button>
+    <button id="btn-rcw"   class="action-btn" aria-label="Rotate clockwise">ROT CW</button>
+    <button id="btn-rccw"  class="action-btn" aria-label="Rotate counter-clockwise">ROT CCW</button>
+    <button id="btn-drop"  class="action-btn" aria-label="Hard drop">DROP</button>
+    <button id="btn-pause" class="action-btn" aria-label="Pause or resume game">PAUSE</button>
   </div>
 </nav>
 
