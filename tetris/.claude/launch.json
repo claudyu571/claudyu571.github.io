@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "tetris",
-      "runtimeExecutable": "ruby",
-      "runtimeArgs": ["-e", "require 'webrick'; WEBrick::HTTPServer.new(Port: 5678, DocumentRoot: '.').start"],
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["/tmp/tetris_serve.py"],
       "port": 5678
     }
   ]
