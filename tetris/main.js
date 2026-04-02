@@ -210,11 +210,23 @@ const PIECE_TO_INT = { I:1, O:2, T:3, S:4, Z:5, J:6, L:7 };
 const INT_TO_PIECE = ['', 'I', 'O', 'T', 'S', 'Z', 'J', 'L'];
 
 function encodeBoard(b) {
-  return b.map(row => row.map(cell => cell ? (PIECE_TO_INT[cell] || 0) : 0));
+  // Flat 200-element array (Firestore does not support nested arrays)
+  const flat = new Array(ROWS * COLS);
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      flat[r * COLS + c] = b[r][c] ? (PIECE_TO_INT[b[r][c]] || 0) : 0;
+  return flat;
 }
 function decodeBoard(enc) {
-  if (!enc) return null;
-  return enc.map(row => row.map(v => INT_TO_PIECE[v] || null));
+  if (!enc || enc.length !== ROWS * COLS) return null;
+  const board = [];
+  for (let r = 0; r < ROWS; r++) {
+    const row = [];
+    for (let c = 0; c < COLS; c++)
+      row.push(INT_TO_PIECE[enc[r * COLS + c]] || null);
+    board.push(row);
+  }
+  return board;
 }
 
 // ─── Multiplayer: opponent board rendering ────────────────────────────────────
@@ -1174,7 +1186,7 @@ function handleRoomUpdate({ data, deleted }) {
   if (room.status === 'lobby' && room.player1?.ready && room.player2?.ready) {
     mpStartGame(room);
   }
-  if (room.status === 'playing' && !mpGameStarting && state !== 'PLAYING') {
+  if (room.status === 'playing' && !mpGameStarting && state !== 'PLAYING' && state !== 'GAME_OVER') {
     mpStartGame(room);
   }
 
@@ -1489,10 +1501,11 @@ function init() {
   const savedName = getSavedName();
   if (savedName) fetchPersonalBest(savedName);
 
-  // Clean up Firebase room if the tab is closed/refreshed mid-game
-  window.addEventListener('beforeunload', () => {
-    if (MP.roomCode) MP.leaveRoom();
-  });
+  // Clean up Firebase room if the tab is closed/refreshed mid-game.
+  // Use both events; leaveRoom() clears roomCode immediately so it only runs once.
+  const mpPageLeave = () => { if (MP.roomCode) MP.leaveRoom(); };
+  window.addEventListener('beforeunload', mpPageLeave);
+  window.addEventListener('pagehide',     mpPageLeave);
 
   showOverlay('menu');
   state = 'MENU';

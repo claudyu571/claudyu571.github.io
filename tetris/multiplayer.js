@@ -11,11 +11,12 @@ const MP = (() => {
   const EXPIRY_MS      = 24 * 60 * 60 * 1000; // 24 h
   const SYNC_THROTTLE  = 80; // ms — max ~12 writes/s per player
 
-  let _code       = null;  // active room code
-  let _slot       = null;  // 'player1' | 'player2'
-  let _unsub      = null;  // Firestore listener unsubscribe fn
-  let _syncTimer  = null;
+  let _code         = null;  // active room code
+  let _slot         = null;  // 'player1' | 'player2'
+  let _unsub        = null;  // Firestore listener unsubscribe fn
+  let _syncTimer    = null;
   let _pendingState = null;
+  let _cachedStatus = null;  // last-known room status (avoids async get() on leave)
 
   // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -176,7 +177,9 @@ const MP = (() => {
     _unsub = ref().onSnapshot(
       snap => {
         if (!snap.exists) { callback({ deleted: true }); return; }
-        callback({ data: snap.data() });
+        const data = snap.data();
+        _cachedStatus = data.status; // keep a local copy for fast cleanup
+        callback({ data });
       },
       err => { console.error('[MP] listener error', err); }
     );
@@ -192,27 +195,46 @@ const MP = (() => {
     unsubscribe();
     if (_syncTimer) { clearTimeout(_syncTimer); _syncTimer = null; }
 
-    if (_code && _slot) {
-      try {
-        const snap = await ref().get();
+    // Capture and clear state immediately — prevents double-calls (e.g. beforeunload + pagehide)
+    const code   = _code;
+    const slot   = _slot;
+    const status = _cachedStatus;
+    _code         = null;
+    _slot         = null;
+    _cachedStatus = null;
+
+    if (!code || !slot) return;
+
+    try {
+      const r = col().doc(code);
+      if (status === 'waiting' || status === 'lobby') {
+        // Single write — no get() roundtrip needed
+        await r.delete();
+      } else if (status === 'playing') {
+        const opp = slot === 'player1' ? 'player2' : 'player1';
+        await r.update({
+          status: 'finished',
+          winner: opp,
+          lastActivity: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      } else {
+        // Status unknown (subscribe never fired) — fall back to get()
+        const snap = await r.get();
         if (snap.exists) {
           const d = snap.data();
           if (d.status === 'waiting' || d.status === 'lobby') {
-            await ref().delete();
+            await r.delete();
           } else if (d.status === 'playing') {
-            const opp = _slot === 'player1' ? 'player2' : 'player1';
-            await ref().update({
+            const opp = slot === 'player1' ? 'player2' : 'player1';
+            await r.update({
               status: 'finished',
               winner: opp,
               lastActivity: firebase.firestore.FieldValue.serverTimestamp(),
             });
           }
         }
-      } catch (_) {}
-    }
-
-    _code = null;
-    _slot = null;
+      }
+    } catch (_) {}
   }
 
   // ─── Private helpers ───────────────────────────────────────────────────────
