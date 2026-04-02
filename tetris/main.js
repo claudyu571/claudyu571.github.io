@@ -1460,11 +1460,9 @@ function init() {
     if (!result.ok) { alert(result.error || 'Quick match failed.'); return; }
     MP.subscribe(handleRoomUpdate);
     if (MP.playerSlot === 'player1') {
-      // We created a new public room — show waiting screen
       if (elMpRoomCodeDisplay) elMpRoomCodeDisplay.textContent = result.code;
       showOverlay('mp-waiting');
     } else {
-      // We joined an existing room — go straight to lobby
       showOverlay('mp-lobby');
     }
   });
