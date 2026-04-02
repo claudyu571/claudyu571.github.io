@@ -65,6 +65,7 @@ let elMpRoomCodeDisplay, elMpRoomInput, elMpJoinError;
 let elMpP1Name, elMpP2Name, elMpP1Status, elMpP2Status;
 let elMpReadyBtn, elMpLobbyCodeDisplay;
 let elMpCountdownWrap, elMpCountdownNum;
+let elMpMyLabel;
 let elMpResultTitle, elMpResultScore, elMpResultOppScore;
 let elOppBoard, elOppCtx, elOppNameDisplay, elOppScore, elOppLevel;
 let elMpOpponentWrap;
@@ -1142,8 +1143,14 @@ function mpStartGame(room) {
   if (mpGameStarting || state === 'PLAYING') return;
   mpGameStarting = true;
 
-  const oppSlot = MP.playerSlot === 'player1' ? 'player2' : 'player1';
+  const mySlot  = MP.playerSlot;
+  const oppSlot = mySlot === 'player1' ? 'player2' : 'player1';
+  const myName  = (room[mySlot]  || {}).name || 'YOU';
   const oppName = (room[oppSlot] || {}).name || 'OPPONENT';
+  if (elMpMyLabel) {
+    elMpMyLabel.innerHTML =
+      `<span class="mp-opp-label">YOU</span><span class="mp-opp-name">${myName}</span>`;
+  }
   if (elOppNameDisplay) elOppNameDisplay.textContent = oppName;
   if (elOppScore)  elOppScore.textContent  = '000000';
   if (elOppLevel)  elOppLevel.textContent  = '0';
@@ -1183,6 +1190,7 @@ async function mpExitToMenu() {
   multiplayerMode = false;
   opponentState   = null;
   mpReady         = false;
+  if (elMpMyLabel) elMpMyLabel.innerHTML = '';
   document.querySelector('.game-wrapper').classList.remove('game-wrapper--mp');
   if (elMpOpponentWrap) elMpOpponentWrap.setAttribute('aria-hidden', 'true');
   resizeCanvas();
@@ -1401,6 +1409,7 @@ function init() {
   elMpLobbyCodeDisplay = document.getElementById('mp-lobby-code-display');
   elMpCountdownWrap    = document.getElementById('mp-countdown-wrap');
   elMpCountdownNum     = document.getElementById('mp-countdown-num');
+  elMpMyLabel          = document.getElementById('mp-my-label');
   elMpResultTitle     = document.getElementById('mp-result-title');
   elMpResultScore     = document.getElementById('mp-result-score');
   elMpResultOppScore  = document.getElementById('mp-result-opp-score');

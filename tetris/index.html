@@ -39,7 +39,12 @@
     </div>
   </aside>
 
-  <!-- Center: board + overlays -->
+  <!-- Center: boards wrapper (single in SP, two side-by-side in MP) -->
+  <div class="mp-boards-wrap">
+
+  <!-- Player board -->
+  <div class="mp-board-col">
+    <div class="mp-board-label" id="mp-my-label" aria-hidden="true"></div>
   <div class="board-container">
     <canvas id="board" role="application" aria-label="Tetris game board" tabindex="0"></canvas>
 
@@ -183,11 +188,12 @@
       </div>
       <button id="btn-controls-close" class="btn btn-secondary">BACK</button>
     </div>
-  </div>
+  </div><!-- /.board-container -->
+  </div><!-- /.mp-board-col -->
 
   <!-- Multiplayer: opponent board (hidden in single-player) -->
   <div class="mp-opponent-wrap" id="mp-opponent-wrap" aria-label="Opponent's board" aria-hidden="true">
-    <div class="mp-opp-header">
+    <div class="mp-board-label mp-opp-label-wrap">
       <span class="mp-opp-label">OPPONENT</span>
       <span class="mp-opp-name" id="opp-name-display"></span>
     </div>
@@ -199,6 +205,8 @@
       <span>LV <span id="opp-level">0</span></span>
     </div>
   </div>
+
+  </div><!-- /.mp-boards-wrap -->
 
   <!-- Right: next piece + live leaderboard -->
   <aside class="side-panel side-panel--right" aria-label="Next piece and leaderboard">

@@ -395,28 +395,52 @@ body {
   .mp-opponent-wrap { display: none !important; }
 }
 
+/* ─── Multiplayer: Boards wrapper ────────────────────────────────────────── */
+.mp-boards-wrap {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--gap);
+  flex-shrink: 0;
+}
+
+/* Label row above each board — hidden in single-player */
+.mp-board-label {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 4px;
+}
+
+.game-wrapper--mp .mp-board-label {
+  display: flex;
+}
+
+/* Column wrapper for player's own board */
+.mp-board-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 /* ─── Multiplayer: Opponent Board ────────────────────────────────────────── */
 .mp-opponent-wrap {
   display: none; /* hidden until multiplayer game starts */
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 0;
   flex-shrink: 0;
-}
-
-.game-wrapper--mp {
-  /* Both boards + side panels — keep everything centred */
-  justify-content: center;
 }
 
 .game-wrapper--mp .mp-opponent-wrap {
   display: flex;
 }
 
-.mp-opp-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.mp-opp-label-wrap {
+  /* inherits .mp-board-label layout */
   gap: 2px;
 }
 
