@@ -18,6 +18,10 @@
   <!-- Left: stats -->
   <aside class="side-panel" aria-label="Game stats">
     <div class="panel-box">
+      <div class="panel-label">HOLD</div>
+      <canvas id="hold-canvas" aria-label="Held Tetrimino preview"></canvas>
+    </div>
+    <div class="panel-box">
       <div class="panel-label">SCORE</div>
       <div class="panel-value" id="hud-score">000000</div>
     </div>
@@ -29,6 +33,10 @@
       <div class="panel-label">LINES</div>
       <div class="panel-value" id="hud-lines">0</div>
     </div>
+    <div class="panel-box" id="combo-box" style="display:none">
+      <div class="panel-label">COMBO</div>
+      <div class="panel-value combo-value" id="hud-combo">&times;1</div>
+    </div>
   </aside>
 
   <!-- Center: board + overlays -->
@@ -37,7 +45,7 @@
 
     <div id="overlay-menu" class="overlay" role="dialog" aria-modal="true" aria-labelledby="menu-title">
       <h1 class="overlay-title" id="menu-title">TETRIS</h1>
-      <p class="overlay-subtitle">USE ARROW KEYS TO PLAY</p>
+      <p class="overlay-subtitle">USE ARROW KEYS OR WASD TO PLAY</p>
       <button id="btn-play" class="btn btn-primary">PLAY</button>
       <button id="btn-lb"   class="btn btn-secondary">LEADERBOARD</button>
       <button id="btn-how"  class="btn btn-secondary">HOW TO PLAY</button>
@@ -86,12 +94,13 @@
     <div id="overlay-controls" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="ctrl-title">
       <h2 class="overlay-title" id="ctrl-title">HOW TO PLAY</h2>
       <div class="controls-grid">
-        <span class="ctrl-action">Move left</span>   <span class="ctrl-key">← Arrow</span>
-        <span class="ctrl-action">Move right</span>  <span class="ctrl-key">→ Arrow</span>
-        <span class="ctrl-action">Rotate CW</span>   <span class="ctrl-key">↑ / Z</span>
-        <span class="ctrl-action">Rotate CCW</span>  <span class="ctrl-key">X</span>
-        <span class="ctrl-action">Soft drop</span>   <span class="ctrl-key">↓ Arrow</span>
+        <span class="ctrl-action">Move left</span>   <span class="ctrl-key">← / A</span>
+        <span class="ctrl-action">Move right</span>  <span class="ctrl-key">→ / D</span>
+        <span class="ctrl-action">Rotate CW</span>   <span class="ctrl-key">↑ / W / X</span>
+        <span class="ctrl-action">Rotate CCW</span>  <span class="ctrl-key">Z</span>
+        <span class="ctrl-action">Soft drop</span>   <span class="ctrl-key">↓ / S</span>
         <span class="ctrl-action">Hard drop</span>   <span class="ctrl-key">Space</span>
+        <span class="ctrl-action">Hold piece</span>  <span class="ctrl-key">C / Shift</span>
         <span class="ctrl-action">Pause</span>       <span class="ctrl-key">P / Esc</span>
       </div>
       <button id="btn-controls-close" class="btn btn-secondary">BACK</button>
@@ -115,12 +124,16 @@
     <button id="btn-down"  class="dpad-btn dpad-down"  aria-label="Soft drop">&#8595;</button>
   </div>
   <div class="action-btns" role="group" aria-label="Action buttons">
+    <button id="btn-hold" class="action-btn" aria-label="Hold piece">HOLD</button>
     <button id="btn-rcw"  class="action-btn" aria-label="Rotate clockwise">ROT CW</button>
     <button id="btn-rccw" class="action-btn" aria-label="Rotate counter-clockwise">ROT CCW</button>
     <button id="btn-drop" class="action-btn" aria-label="Hard drop">DROP</button>
   </div>
 </nav>
 
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
 <script src="logic.js"></script>
 <script src="main.js"></script>
 </body>

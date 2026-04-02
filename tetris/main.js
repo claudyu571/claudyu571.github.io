@@ -20,6 +20,7 @@ const LINE_LABELS = ['', 'SINGLE', 'DOUBLE', 'TRIPLE', 'TETRIS!'];
 
 let state = 'MENU'; // MENU | PLAYING | PAUSED | GAME_OVER
 let board, activePiece, nextPiece, bag;
+let holdPieceType, holdUsed; // hold slot
 let score, level, totalLines;
 let dropTimer, lockTimer, lockMoves;
 let lastTimestamp;
@@ -29,12 +30,16 @@ let levelToastText, levelToastTimer;
 let clearedLineIndices, flashTimer;
 let softDropActive;
 let reducedMotion;
+let scorePops; // floating score popups [{x, y, text, color, life, dy}]
+let combo; // consecutive line clears without a miss
 
 // ─── DOM References ───────────────────────────────────────────────────────────
 
 let canvas, ctx;
 let overlayMenu, overlayPause, overlayGameOver, overlayLeaderboard, overlayControls;
 let elScore, elLevel, elLines, elNextCanvas, elNextCtx;
+let elHoldCanvas, elHoldCtx;
+let elCombo, elComboBox;
 let elScoreAnnounce, elLevelAnnounce;
 let elFinalScore, elBestScore, elNewBest, elNameInput;
 let elLbBody;
@@ -66,6 +71,12 @@ function resizeCanvas() {
     const pCell = Math.min(CELL, 28); // cap so panel stays compact (4*28+24 = 136px)
     elNextCanvas.width  = 4 * pCell;
     elNextCanvas.height = 4 * pCell;
+  }
+
+  if (elHoldCanvas) {
+    const pCell = Math.min(CELL, 28);
+    elHoldCanvas.width  = 4 * pCell;
+    elHoldCanvas.height = 4 * pCell;
   }
 
   // Patterns are sized to CELL — must rebuild on resize
@@ -296,18 +307,87 @@ function drawNextPiece() {
   }
 }
 
+function drawHoldPiece() {
+  if (!elHoldCtx || !elHoldCanvas) return;
+  const nc = elHoldCanvas.width;
+  const nr = elHoldCanvas.height;
+  elHoldCtx.clearRect(0, 0, nc, nr);
+  if (!holdPieceType) return;
+
+  const piece = PIECES[holdPieceType];
+  const mat = piece.matrices[0];
+  const pCell = Math.floor(nc / 4);
+  const pieceW = mat[0].length * pCell;
+  const pieceH = mat.length * pCell;
+  const offsetX = Math.floor((nc - pieceW) / 2);
+  const offsetY = Math.floor((nr - pieceH) / 2);
+
+  const alpha = holdUsed ? 0.4 : 1;
+
+  for (let r = 0; r < mat.length; r++) {
+    for (let c = 0; c < mat[r].length; c++) {
+      if (!mat[r][c]) continue;
+      const px = offsetX + c * pCell;
+      const py = offsetY + r * pCell;
+
+      elHoldCtx.save();
+      elHoldCtx.globalAlpha = alpha;
+      elHoldCtx.translate(px, py);
+      const pat = buildPattern(elHoldCtx, PIECE_PATTERNS[holdPieceType], piece.color);
+      elHoldCtx.fillStyle = pat || piece.color;
+      elHoldCtx.fillRect(0, 0, pCell, pCell);
+      elHoldCtx.restore();
+    }
+  }
+}
+
+function spawnScorePop(text, color, row) {
+  // Position popup at center of the cleared row area
+  const x = BOARD_W / 2;
+  const y = row * CELL + CELL / 2;
+  scorePops.push({ x, y, text, color, life: 1.0, dy: 0 });
+}
+
+function updateAndDrawPops(dt) {
+  for (let i = scorePops.length - 1; i >= 0; i--) {
+    const p = scorePops[i];
+    p.life -= dt * 0.0013; // ~770ms lifespan
+    p.dy -= dt * 0.12;     // rise upward
+    if (p.life <= 0) { scorePops.splice(i, 1); continue; }
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, p.life);
+    const fontSize = Math.max(10, Math.floor(CELL * 0.52));
+    ctx.font = `bold ${fontSize}px "Trebuchet MS", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 6;
+    ctx.fillText(p.text, p.x, p.y + p.dy);
+    ctx.restore();
+  }
+}
+
 function drawToast() {
   if (!toastText || toastTimer <= 0) return;
   const alpha = Math.min(1, toastTimer / 200);
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.font = `bold 18px 'Press Start 2P', monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.shadowColor = toastText === 'TETRIS!' ? '#FFE600' : '#00F5FF';
+  const lines = toastText.split('\n');
+  const isTetris = toastText.includes('TETRIS!');
+  ctx.shadowColor = isTetris ? '#FFE600' : '#00F5FF';
   ctx.shadowBlur = 16;
-  ctx.fillText(toastText, BOARD_W / 2, BOARD_H * 0.42);
+  for (let i = 0; i < lines.length; i++) {
+    const isBonus = lines[i] === 'SAME PIECE!';
+    ctx.font = isBonus
+      ? `bold 12px 'Press Start 2P', monospace`
+      : `bold 18px 'Press Start 2P', monospace`;
+    ctx.fillStyle = isBonus ? '#FFE600' : '#FFFFFF';
+    ctx.fillText(lines[i], BOARD_W / 2, BOARD_H * 0.42 + i * 28);
+  }
   ctx.restore();
 }
 
@@ -326,13 +406,15 @@ function drawLevelToast() {
   ctx.restore();
 }
 
-function render() {
+function render(dt) {
   drawBoard();
   drawGhost();
   drawActivePiece();
+  updateAndDrawPops(dt || 0);
   drawToast();
   drawLevelToast();
   drawNextPiece();
+  drawHoldPiece();
   updateHUD();
 }
 
@@ -340,6 +422,14 @@ function updateHUD() {
   if (elScore) elScore.textContent = String(score).padStart(6, '0');
   if (elLevel) elLevel.textContent = level;
   if (elLines) elLines.textContent = totalLines;
+  if (elComboBox) {
+    if (combo >= 2) {
+      elComboBox.style.display = '';
+      elCombo.textContent = `×${combo}`;
+    } else {
+      elComboBox.style.display = 'none';
+    }
+  }
 }
 
 // ─── Game Logic ───────────────────────────────────────────────────────────────
@@ -354,6 +444,7 @@ function spawnNext() {
   nextPiece = spawnPiece(nextFromBag());
   lockTimer = null;
   lockMoves = 0;
+  holdUsed = false;
 
   if (!isValidPosition(board, activePiece)) {
     triggerGameOver();
@@ -386,6 +477,45 @@ function tryRotateActive(dir) {
   }
 }
 
+function holdCurrentPiece() {
+  if (!activePiece || holdUsed) return;
+  holdUsed = true;
+  const prevHold = holdPieceType;
+  holdPieceType = activePiece.type;
+
+  if (prevHold) {
+    activePiece = spawnPiece(prevHold);
+  } else {
+    activePiece = spawnPiece(nextPiece.type);
+    nextPiece = spawnPiece(nextFromBag());
+  }
+
+  lockTimer = null;
+  lockMoves = 0;
+  dropTimer = calcDropInterval(level);
+
+  if (!isValidPosition(board, activePiece)) {
+    triggerGameOver();
+  }
+
+  drawHoldPiece();
+  drawNextPiece();
+}
+
+function checkSamePieceBonus(board, lineIndices) {
+  if (lineIndices.length === 0) return false;
+  let pieceType = null;
+  for (const row of lineIndices) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = board[row][c];
+      if (!cell) return false;
+      if (pieceType === null) pieceType = cell;
+      else if (cell !== pieceType) return false;
+    }
+  }
+  return true;
+}
+
 function hardDrop() {
   if (!activePiece) return;
   let dropped = 0;
@@ -409,25 +539,62 @@ function lockActive() {
     }
 
     setTimeout(() => {
+      // Check same-piece bonus before clearing
+      const samePiece = checkSamePieceBonus(board, indices);
+
       const { newBoard, linesCleared } = clearLines(board);
       board = newBoard;
       clearedLineIndices = null;
 
+      // Combo tracking
+      combo++;
+      if (combo >= 2 && elComboBox) {
+        elComboBox.classList.add('combo-flash');
+        setTimeout(() => elComboBox.classList.remove('combo-flash'), 150);
+      }
+
       const prev = level;
       totalLines += linesCleared;
       const newLevel = calcLevel(totalLines);
-      score += calcScore(linesCleared, level);
+      let gained = calcScore(linesCleared, level);
+
+      // Apply combo multiplier (starts at combo 2)
+      const comboMultiplier = combo >= 2 ? 1 + (combo - 1) * 0.5 : 1;
+      gained = Math.floor(gained * comboMultiplier);
+
+      if (samePiece && linesCleared > 0) {
+        gained = Math.floor(gained * 1.5);
+      }
+      score += gained;
       level = newLevel;
 
       announceScore();
       if (level > prev) announceLevel();
 
-      showToast(LINE_LABELS[linesCleared]);
+      let label = LINE_LABELS[linesCleared];
+      if (samePiece && linesCleared > 0) label += '\nSAME PIECE!';
+      showToast(label);
       if (level > prev) showLevelToast(level);
+
+      // Floating score popup at the cleared row
+      const midRow = indices[Math.floor(indices.length / 2)];
+      let popText = `+${gained}`;
+      let popColor = '#edf4ee';
+      if (linesCleared === 4) popColor = '#FFE600';
+      else if (linesCleared >= 2) popColor = '#00F5FF';
+      spawnScorePop(popText, popColor, midRow);
+
+      if (combo >= 2) {
+        spawnScorePop(`COMBO ×${combo}`, '#ff44aa', midRow + 1);
+      }
+      if (samePiece && linesCleared > 0) {
+        spawnScorePop('SAME PIECE!', '#FFE600', midRow - 1);
+      }
 
       spawnNext();
     }, reducedMotion ? 0 : 200);
   } else {
+    combo = 0;
     spawnNext();
   }
 
@@ -484,7 +651,7 @@ function gameLoop(timestamp) {
   if (levelToastTimer > 0) levelToastTimer -= dt;
   if (flashTimer > 0) flashTimer -= dt;
 
-  render();
+  render(dt);
   animFrame = requestAnimationFrame(gameLoop);
 }
 
@@ -518,18 +685,25 @@ function handleKeyDown(e) {
 
   switch (e.code) {
     case 'ArrowLeft':  e.preventDefault(); tryMove(-1, 0); break;
+    case 'KeyA':       tryMove(-1, 0); break;
     case 'ArrowRight': e.preventDefault(); tryMove(1, 0); break;
+    case 'KeyD':       tryMove(1, 0); break;
     case 'ArrowUp':    e.preventDefault(); tryRotateActive(1); break;
+    case 'KeyW':       tryRotateActive(1); break;
     case 'KeyZ':       tryRotateActive(-1); break;
     case 'KeyX':       tryRotateActive(1); break;
     case 'ArrowDown':  e.preventDefault(); softDropActive = true; break;
+    case 'KeyS':       softDropActive = true; break;
     case 'Space':      e.preventDefault(); hardDrop(); break;
+    case 'KeyC':       // fall through
+    case 'ShiftLeft':  // fall through
+    case 'ShiftRight': holdCurrentPiece(); break;
   }
 }
 
 function handleKeyUp(e) {
   keysDown.delete(e.code);
-  if (e.code === 'ArrowDown') softDropActive = false;
+  if (e.code === 'ArrowDown' || e.code === 'KeyS') softDropActive = false;
 }
 
 // DAS (Delayed Auto Shift) for left/right
@@ -541,11 +715,13 @@ const ARR_INTERVAL = 50;
 document.addEventListener('keydown', (e) => {
   if (state !== 'PLAYING') { handleKeyDown(e); return; }
 
-  if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+  const isLeft  = e.code === 'ArrowLeft'  || e.code === 'KeyA';
+  const isRight = e.code === 'ArrowRight' || e.code === 'KeyD';
+  if (isLeft || isRight) {
     if (keysDown.has(e.code)) return;
     handleKeyDown(e);
     clearTimeout(dasTimer); clearInterval(arrTimer);
-    const dir = e.code === 'ArrowLeft' ? -1 : 1;
+    const dir = isLeft ? -1 : 1;
     dasTimer = setTimeout(() => {
       arrTimer = setInterval(() => {
         if (state === 'PLAYING') tryMove(dir, 0);
@@ -559,7 +735,7 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('keyup', (e) => {
   handleKeyUp(e);
-  if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+  if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyA' || e.code === 'KeyD') {
     clearTimeout(dasTimer); clearInterval(arrTimer);
   }
 });
@@ -581,6 +757,7 @@ function setupMobileControls() {
   btn('btn-rccw',   () => { if (state === 'PLAYING') tryRotateActive(-1); });
   btn('btn-down',   () => { if (state === 'PLAYING') tryMove(0, 1); });
   btn('btn-drop',   () => { if (state === 'PLAYING') hardDrop(); });
+  btn('btn-hold',   () => { if (state === 'PLAYING') holdCurrentPiece(); });
 }
 
 // ─── State Transitions ────────────────────────────────────────────────────────
@@ -600,6 +777,10 @@ function startGame() {
   clearedLineIndices = null;
   flashTimer = 0;
   softDropActive = false;
+  holdPieceType = null;
+  holdUsed = false;
+  scorePops = [];
+  combo = 0;
   lastTimestamp = null;
   keysDown.clear();
 
@@ -634,12 +815,11 @@ function triggerGameOver() {
   state = 'GAME_OVER';
   cancelAnimationFrame(animFrame);
 
-  const best = getPersonalBest();
-  const isNew = score > best;
-  if (isNew) setPersonalBest(score);
+  const isNew = score > personalBest;
+  if (isNew) personalBest = score;
 
   if (elFinalScore) elFinalScore.textContent = String(score).padStart(6, '0');
-  if (elBestScore) elBestScore.textContent = String(isNew ? score : best).padStart(6, '0');
+  if (elBestScore) elBestScore.textContent = String(isNew ? score : personalBest).padStart(6, '0');
   if (elNewBest) elNewBest.style.display = isNew ? 'block' : 'none';
   if (elNameInput) elNameInput.value = getSavedName() || '';
 
@@ -667,47 +847,94 @@ function showOverlay(name) {
   }
 }
 
-// ─── Leaderboard ─────────────────────────────────────────────────────────────
+// ─── Leaderboard (Firestore) ─────────────────────────────────────────────────
 
-function getLeaderboard() {
-  try { return JSON.parse(localStorage.getItem('tetris_lb') || '[]'); } catch { return []; }
+const LB_COLLECTION = 'tetris_leaderboard';
+let leaderboardUnsubscribe = null;
+let personalBest = 0;
+let _personalBestEpoch = 0;
+
+function getLeaderboardCollection() {
+  return db.collection(LB_COLLECTION);
 }
 
-function saveLeaderboard(lb) {
-  localStorage.setItem('tetris_lb', JSON.stringify(lb));
+function subscribeToLeaderboard() {
+  if (leaderboardUnsubscribe) leaderboardUnsubscribe();
+
+  leaderboardUnsubscribe = getLeaderboardCollection()
+    .orderBy('score', 'desc')
+    .limit(10)
+    .onSnapshot(
+      (snapshot) => {
+        const entries = snapshot.docs
+          .map((doc) => doc.data())
+          .sort(compareEntries);
+        renderLeaderboard(entries);
+      },
+      () => renderLeaderboard([])
+    );
 }
 
-function addScore(name, s, lvl) {
-  const lb = getLeaderboard();
-  lb.push({ name: name.slice(0, 12).toUpperCase() || 'PLAYER', score: s, level: lvl });
-  lb.sort((a, b) => b.score - a.score);
-  saveLeaderboard(lb.slice(0, 10));
+function compareEntries(a, b) {
+  if (b.score !== a.score) return b.score - a.score;
+  const ta = a.timestamp ? a.timestamp.toMillis?.() ?? a.timestamp : 0;
+  const tb = b.timestamp ? b.timestamp.toMillis?.() ?? b.timestamp : 0;
+  return ta - tb;
 }
 
-function getPersonalBest() {
-  try { return parseInt(localStorage.getItem('tetris_best') || '0', 10); } catch { return 0; }
+function addScoreToFirestore(name, s, lvl) {
+  if (!name || s <= 0) return;
+  getLeaderboardCollection()
+    .add({
+      name: name.slice(0, 12).toUpperCase() || 'PLAYER',
+      score: s,
+      level: lvl,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+    })
+    .catch(() => {});
 }
 
-function setPersonalBest(s) {
-  localStorage.setItem('tetris_best', String(s));
+function fetchPersonalBest(name) {
+  _personalBestEpoch += 1;
+  const epoch = _personalBestEpoch;
+
+  if (!name) { personalBest = 0; return; }
+
+  getLeaderboardCollection()
+    .where('name', '==', name.slice(0, 12).toUpperCase())
+    .get()
+    .then((snapshot) => {
+      if (epoch !== _personalBestEpoch) return;
+      personalBest = snapshot.empty
+        ? 0
+        : Math.max(...snapshot.docs.map((d) => d.data().score));
+    })
+    .catch(() => {
+      if (epoch === _personalBestEpoch) personalBest = 0;
+    });
 }
 
 function getSavedName() {
   return localStorage.getItem('tetris_name') || '';
 }
 
-function renderLeaderboard() {
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function renderLeaderboard(entries) {
   if (!elLbBody) return;
-  const lb = getLeaderboard();
   const rankLabels = ['1ST', '2ND', '3RD'];
-  if (lb.length === 0) {
+  if (!entries || entries.length === 0) {
     elLbBody.innerHTML = `<tr><td colspan="4" class="lb-empty">No scores yet. Be the first.</td></tr>`;
     return;
   }
-  elLbBody.innerHTML = lb.slice(0, 10).map((entry, i) => `
+  elLbBody.innerHTML = entries.slice(0, 10).map((entry, i) => `
     <tr class="${i < 3 ? 'lb-top' : ''}">
       <td>${rankLabels[i] || (i + 1)}</td>
-      <td>${entry.name}</td>
+      <td>${escapeHtml(entry.name)}</td>
       <td>${String(entry.score).padStart(6, '0')}</td>
       <td>${entry.level}</td>
     </tr>
@@ -727,6 +954,11 @@ function init() {
     elNextCtx = elNextCanvas.getContext('2d');
   }
 
+  elHoldCanvas = document.getElementById('hold-canvas');
+  if (elHoldCanvas) {
+    elHoldCtx = elHoldCanvas.getContext('2d');
+  }
+
   resizeCanvas();
   let resizeTimeout;
   window.addEventListener('resize', () => {
@@ -743,6 +975,8 @@ function init() {
   elScore = document.getElementById('hud-score');
   elLevel = document.getElementById('hud-level');
   elLines = document.getElementById('hud-lines');
+  elCombo = document.getElementById('hud-combo');
+  elComboBox = document.getElementById('combo-box');
 
   elScoreAnnounce = document.getElementById('score-announce');
   elLevelAnnounce = document.getElementById('level-announce');
@@ -755,7 +989,7 @@ function init() {
 
   // Menu buttons
   bindBtn('btn-play',   () => startGame());
-  bindBtn('btn-lb',     () => { renderLeaderboard(); showOverlay('leaderboard'); });
+  bindBtn('btn-lb',     () => showOverlay('leaderboard'));
   bindBtn('btn-how',    () => showOverlay('controls'));
   bindBtn('btn-resume', () => resumeGame());
   bindBtn('btn-quit',   () => {
@@ -763,24 +997,31 @@ function init() {
     cancelAnimationFrame(animFrame);
     // Clear canvases so nothing lingers behind the menu overlay
     if (elNextCtx && elNextCanvas) elNextCtx.clearRect(0, 0, elNextCanvas.width, elNextCanvas.height);
+    if (elHoldCtx && elHoldCanvas) elHoldCtx.clearRect(0, 0, elHoldCanvas.width, elHoldCanvas.height);
     if (ctx) { ctx.fillStyle = '#09110e'; ctx.fillRect(0, 0, BOARD_W, BOARD_H); }
     nextPiece = null;
     activePiece = null;
+    holdPieceType = null;
     showOverlay('menu');
   });
   bindBtn('btn-again',  () => startGame());
   bindBtn('btn-save',   () => {
     const name = elNameInput ? elNameInput.value.trim() : '';
     localStorage.setItem('tetris_name', name);
-    addScore(name || 'PLAYER', score, level);
-    renderLeaderboard();
+    addScoreToFirestore(name || 'PLAYER', score, level);
+    fetchPersonalBest(name || 'PLAYER');
     showOverlay('leaderboard');
   });
   bindBtn('btn-lb-close',       () => showOverlay('menu'));
   bindBtn('btn-controls-close', () => showOverlay('menu'));
-  bindBtn('btn-lb-from-go',     () => { renderLeaderboard(); showOverlay('leaderboard'); });
+  bindBtn('btn-lb-from-go',     () => showOverlay('leaderboard'));
 
   setupMobileControls();
+
+  // Start real-time leaderboard listener & fetch personal best
+  subscribeToLeaderboard();
+  const savedName = getSavedName();
+  if (savedName) fetchPersonalBest(savedName);
 
   showOverlay('menu');
   state = 'MENU';

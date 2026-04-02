@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hapics",
+      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeArgs": ["/opt/homebrew/lib/node_modules/serve/build/main.js", "/Users/qa_claudius/Documents/AI/Claude/HAPICS_Page", "-l", "3000"],
+      "port": 3000
+    }
+  ]
+}

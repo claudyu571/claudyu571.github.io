@@ -112,13 +112,16 @@ body {
   letter-spacing: 0.04em;
 }
 
-#next-canvas { display: block; background: transparent; }
+#next-canvas, #hold-canvas { display: block; background: transparent; }
+
+.combo-value { color: var(--piece-T); transition: transform 120ms ease; }
+#combo-box.combo-flash .combo-value { transform: scale(1.25); }
 
 /* ─── Board ──────────────────────────────────────────────────────────────────── */
 .board-container {
   position: relative;
   flex-shrink: 0;
-  border-radius: var(--radius);
+  border-radius: var(--radius) var(--radius) 0 0;
   overflow: hidden;
   border: 1px solid rgba(255,255,255,0.06);
   box-shadow:
