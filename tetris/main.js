@@ -77,12 +77,13 @@ function resizeCanvas() {
   const gap = isMobile ? 6 : 12;
   const mobileBarH = isMobile ? 96 : 0;
 
-  // Both side panels fixed at 192px; in multiplayer subtract opponent board width
-  const oppW   = (!isMobile && multiplayerMode) ? OPP_W + gap : 0;
+  // Both side panels fixed at 192px; in multiplayer the opponent board is the same
+  // size as the main board, so divide the available width equally between both boards.
   const panels = isMobile ? 0 : 192 * 2 + gap * 2;
+  const boardSlots = (!isMobile && multiplayerMode) ? 2 : 1;
 
-  const availW = window.innerWidth  - pad * 2 - panels - oppW;
-  const availH = window.innerHeight - pad * 2 - mobileBarH;
+  const availW = (window.innerWidth  - pad * 2 - panels - gap * (boardSlots - 1)) / boardSlots;
+  const availH =  window.innerHeight - pad * 2 - mobileBarH;
 
   CELL = Math.max(14, Math.floor(Math.min(availH / ROWS, availW / COLS)));
   BOARD_W = COLS * CELL;
@@ -105,7 +106,10 @@ function resizeCanvas() {
     elHoldCanvas.height = 4 * pCell;
   }
 
-  // Opponent canvas always fixed size
+  // Opponent canvas matches the main board exactly
+  OPP_CELL = CELL;
+  OPP_W    = BOARD_W;
+  OPP_H    = BOARD_H;
   if (elOppBoard) {
     elOppBoard.width  = OPP_W;
     elOppBoard.height = OPP_H;
@@ -233,9 +237,10 @@ function decodeBoard(enc) {
 }
 
 // ─── Multiplayer: opponent board rendering ────────────────────────────────────
-const OPP_CELL = 14; // px per cell on opponent canvas
-const OPP_W    = COLS * OPP_CELL;
-const OPP_H    = ROWS * OPP_CELL;
+// Opponent board uses the same cell/board size as the main board (updated by resizeCanvas)
+let OPP_CELL = CELL;
+let OPP_W    = BOARD_W;
+let OPP_H    = BOARD_H;
 
 function drawOpponentBoard() {
   if (!elOppCtx) return;

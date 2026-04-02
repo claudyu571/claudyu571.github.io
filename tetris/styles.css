@@ -404,6 +404,11 @@ body {
   flex-shrink: 0;
 }
 
+.game-wrapper--mp {
+  /* Both boards + side panels — keep everything centred */
+  justify-content: center;
+}
+
 .game-wrapper--mp .mp-opponent-wrap {
   display: flex;
 }
@@ -416,13 +421,13 @@ body {
 }
 
 .mp-opp-label {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   color: var(--muted);
   letter-spacing: 0.14em;
 }
 
 .mp-opp-name {
-  font-size: 0.85rem;
+  font-size: 1rem;
   color: var(--accent);
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -433,18 +438,21 @@ body {
 }
 
 .mp-opp-board-container {
-  border: 1px solid rgba(116,214,128,0.18);
+  border: 1px solid rgba(255,255,255,0.06);
   border-radius: var(--radius) var(--radius) 0 0;
   overflow: hidden;
-  background: #09110e;
+  background: var(--board);
+  box-shadow:
+    0 0 40px rgba(116, 214, 128, 0.06),
+    0 20px 60px rgba(0,0,0,0.5);
 }
 
 #opp-board { display: block; }
 
 .mp-opp-stats {
   display: flex;
-  gap: 12px;
-  font-size: 0.72rem;
+  gap: 16px;
+  font-size: 0.8rem;
   color: var(--muted);
   letter-spacing: 0.08em;
 }
