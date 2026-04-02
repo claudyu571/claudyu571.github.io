@@ -55,8 +55,68 @@
         </div>
       </div>
       <button id="btn-play" class="btn btn-primary">PLAY</button>
+      <button id="btn-mp"   class="btn btn-secondary">MULTIPLAYER</button>
       <button id="btn-lb"   class="btn btn-secondary">LEADERBOARD</button>
       <button id="btn-how"  class="btn btn-secondary">HOW TO PLAY</button>
+    </div>
+
+    <!-- ── Multiplayer: Create / Join ─────────────────────────────────── -->
+    <div id="overlay-mp-menu" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="mp-menu-title">
+      <h2 class="overlay-title" id="mp-menu-title">MULTIPLAYER</h2>
+      <p class="overlay-subtitle">PLAY AGAINST A FRIEND</p>
+      <button id="btn-mp-create" class="btn btn-primary">CREATE ROOM</button>
+      <button id="btn-mp-join-show" class="btn btn-secondary">JOIN ROOM</button>
+      <div id="mp-join-form" class="mp-join-form" hidden>
+        <input id="mp-room-input" class="mp-code-input" maxlength="6"
+               placeholder="ENTER CODE" autocomplete="off" spellcheck="false"
+               aria-label="Enter room code" />
+        <button id="btn-mp-join" class="btn btn-primary">JOIN</button>
+        <p id="mp-join-error" class="mp-error" aria-live="polite"></p>
+      </div>
+      <button id="btn-mp-menu-back" class="btn btn-secondary">BACK</button>
+    </div>
+
+    <!-- ── Multiplayer: Waiting for opponent ──────────────────────────── -->
+    <div id="overlay-mp-waiting" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="mp-wait-title">
+      <h2 class="overlay-title" id="mp-wait-title">ROOM CREATED</h2>
+      <p class="overlay-subtitle">SHARE THIS CODE WITH A FRIEND</p>
+      <div class="mp-room-code" id="mp-room-code-display" aria-live="polite">------</div>
+      <p class="mp-waiting-text">Waiting for opponent<span class="mp-dots"></span></p>
+      <button id="btn-mp-cancel" class="btn btn-danger">CANCEL</button>
+    </div>
+
+    <!-- ── Multiplayer: Lobby ──────────────────────────────────────────── -->
+    <div id="overlay-mp-lobby" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="mp-lobby-title">
+      <h2 class="overlay-title" id="mp-lobby-title">LOBBY</h2>
+      <p class="mp-lobby-code">ROOM: <span id="mp-lobby-code-display"></span></p>
+      <div class="mp-players">
+        <div class="mp-player-card">
+          <span class="mp-player-name" id="mp-p1-name">P1</span>
+          <span class="mp-player-status" id="mp-p1-status">NOT READY</span>
+        </div>
+        <div class="mp-vs">VS</div>
+        <div class="mp-player-card">
+          <span class="mp-player-name" id="mp-p2-name">Waiting…</span>
+          <span class="mp-player-status" id="mp-p2-status">NOT READY</span>
+        </div>
+      </div>
+      <button id="btn-mp-ready" class="btn btn-primary" disabled>I'M READY</button>
+      <button id="btn-mp-lobby-leave" class="btn btn-danger">LEAVE ROOM</button>
+    </div>
+
+    <!-- ── Multiplayer: Result ────────────────────────────────────────── -->
+    <div id="overlay-mp-result" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="mp-result-title">
+      <h2 class="overlay-title" id="mp-result-title">YOU WIN!</h2>
+      <div class="score-row">
+        <div class="panel-label">YOUR SCORE</div>
+        <div class="panel-value" id="mp-result-score">000000</div>
+      </div>
+      <div class="score-row">
+        <div class="panel-label">OPPONENT SCORE</div>
+        <div class="panel-value" id="mp-result-opp-score">000000</div>
+      </div>
+      <button id="btn-mp-play-again" class="btn btn-primary">PLAY AGAIN</button>
+      <button id="btn-mp-to-menu"    class="btn btn-secondary">MAIN MENU</button>
     </div>
 
     <div id="overlay-pause" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="pause-title">
@@ -115,6 +175,21 @@
     </div>
   </div>
 
+  <!-- Multiplayer: opponent board (hidden in single-player) -->
+  <div class="mp-opponent-wrap" id="mp-opponent-wrap" aria-label="Opponent's board" aria-hidden="true">
+    <div class="mp-opp-header">
+      <span class="mp-opp-label">OPPONENT</span>
+      <span class="mp-opp-name" id="opp-name-display"></span>
+    </div>
+    <div class="mp-opp-board-container">
+      <canvas id="opp-board"></canvas>
+    </div>
+    <div class="mp-opp-stats">
+      <span>SCORE <span id="opp-score">000000</span></span>
+      <span>LV <span id="opp-level">0</span></span>
+    </div>
+  </div>
+
   <!-- Right: next piece + live leaderboard -->
   <aside class="side-panel side-panel--right" aria-label="Next piece and leaderboard">
     <div class="panel-box">
@@ -153,6 +228,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script src="logic.js"></script>
+<script src="multiplayer.js"></script>
 <script src="main.js"></script>
 </body>
 </html>

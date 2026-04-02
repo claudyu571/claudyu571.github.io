@@ -392,4 +392,208 @@ body {
   .side-panel { display: none; }
   .game-wrapper { padding-bottom: 96px; }
   .mobile-controls { display: flex; }
+  .mp-opponent-wrap { display: none !important; }
 }
+
+/* ─── Multiplayer: Opponent Board ────────────────────────────────────────── */
+.mp-opponent-wrap {
+  display: none; /* hidden until multiplayer game starts */
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.game-wrapper--mp .mp-opponent-wrap {
+  display: flex;
+}
+
+.mp-opp-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.mp-opp-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.14em;
+}
+
+.mp-opp-name {
+  font-size: 0.85rem;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp-opp-board-container {
+  border: 1px solid rgba(116,214,128,0.18);
+  border-radius: var(--radius) var(--radius) 0 0;
+  overflow: hidden;
+  background: #09110e;
+}
+
+#opp-board { display: block; }
+
+.mp-opp-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+
+.mp-opp-stats span span {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ─── Multiplayer: Overlays ───────────────────────────────────────────────── */
+
+/* Room code display */
+.mp-room-code {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+  color: var(--accent);
+  letter-spacing: 0.22em;
+  text-shadow: 0 0 18px rgba(116,214,128,0.55);
+  background: rgba(116,214,128,0.06);
+  border: 1px solid rgba(116,214,128,0.2);
+  border-radius: 8px;
+  padding: 14px 28px;
+  margin: 4px 0 8px;
+  cursor: default;
+  user-select: all;
+}
+
+/* Waiting dots animation */
+.mp-waiting-text { font-size: 0.8rem; color: var(--muted); }
+
+@keyframes mp-dots {
+  0%, 20%  { content: '.'; }
+  40%      { content: '..'; }
+  60%,100% { content: '...'; }
+}
+.mp-dots::after {
+  content: '...';
+  animation: mp-dots 1.4s steps(1) infinite;
+}
+
+/* Join form */
+.mp-join-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 240px;
+  margin: 0 auto;
+}
+
+.mp-code-input {
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  text-align: center;
+  width: 100%;
+  padding: 10px 16px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 8px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 150ms ease;
+}
+
+.mp-code-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(116,214,128,0.15);
+}
+
+.mp-error {
+  font-size: 0.75rem;
+  color: #ff5555;
+  min-height: 1em;
+  text-align: center;
+}
+
+/* Lobby */
+.mp-lobby-code {
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+.mp-lobby-code span {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.mp-players {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin: 10px 0 16px;
+  width: 100%;
+  justify-content: center;
+}
+
+.mp-player-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 90px;
+  padding: 12px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+}
+
+.mp-player-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.06em;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp-player-status {
+  font-size: 0.68rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  transition: color 200ms ease;
+}
+
+.mp-player-status.mp-status-ready {
+  color: var(--accent);
+}
+
+.mp-vs {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+/* Spinner for waiting screen */
+@keyframes mp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Result overlay highlight */
+#overlay-mp-result .overlay-title { font-size: clamp(1.4rem, 3vw, 2rem); }
+#overlay-mp-result .overlay-title.mp-win  { color: var(--accent); text-shadow: 0 0 24px rgba(116,214,128,0.6); }
+#overlay-mp-result .overlay-title.mp-lose { color: #ff5555; text-shadow: 0 0 24px rgba(255,85,85,0.5); }
