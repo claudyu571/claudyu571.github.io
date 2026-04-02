@@ -1450,6 +1450,25 @@ function init() {
     MP.subscribe(handleRoomUpdate);
   });
 
+  // Quick Match — find a public waiting room or create one
+  bindBtn('btn-mp-quickmatch', async () => {
+    const btn = document.getElementById('btn-mp-quickmatch');
+    if (btn) { btn.disabled = true; btn.textContent = 'SEARCHING…'; }
+    const name = getSavedName() || 'PLAYER';
+    const result = await MP.quickMatch(name);
+    if (btn) { btn.disabled = false; btn.textContent = 'QUICK MATCH'; }
+    if (!result.ok) { alert(result.error || 'Quick match failed.'); return; }
+    MP.subscribe(handleRoomUpdate);
+    if (MP.playerSlot === 'player1') {
+      // We created a new public room — show waiting screen
+      if (elMpRoomCodeDisplay) elMpRoomCodeDisplay.textContent = result.code;
+      showOverlay('mp-waiting');
+    } else {
+      // We joined an existing room — go straight to lobby
+      showOverlay('mp-lobby');
+    }
+  });
+
   // Show join overlay
   bindBtn('btn-mp-join-show', () => {
     if (elMpRoomInput) elMpRoomInput.value = '';
@@ -1500,8 +1519,15 @@ function init() {
     document.querySelector('.game-wrapper').classList.remove('game-wrapper--mp');
     if (elMpOpponentWrap) elMpOpponentWrap.setAttribute('aria-hidden', 'true');
     resizeCanvas();
-    await MP.leaveRoom();
-    showOverlay('mp-menu');
+    // Stay in the same room — reset it back to lobby so both can ready up again
+    const reset = await MP.resetRoom();
+    if (!reset.ok) {
+      // Room gone (opponent left) — fall back to menu
+      await MP.leaveRoom();
+      showOverlay('mp-menu');
+    } else {
+      showOverlay('mp-lobby');
+    }
     state = 'MENU';
   });
   bindBtn('btn-mp-to-menu', () => mpExitToMenu());

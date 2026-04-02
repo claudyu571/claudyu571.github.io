@@ -36,7 +36,7 @@ const MP = (() => {
 
   // ─── Room lifecycle ────────────────────────────────────────────────────────
 
-  async function createRoom(playerName) {
+  async function createRoom(playerName, isPublic = false) {
     // Opportunistically clean up a few stale rooms before creating
     _pruneExpired().catch(() => {});
 
@@ -46,6 +46,7 @@ const MP = (() => {
         await ref(code).set({
           roomCode: code,
           status:   'waiting',   // waiting | lobby | playing | finished
+          isPublic: isPublic,
           player1: {
             name:      _sanitizeName(playerName, 'PLAYER1'),
             ready:     false,
@@ -86,8 +87,13 @@ const MP = (() => {
         }
       }
 
+      // A finished room means the previous game ended but cleanup didn't run —
+      // allow joining if there's no active listener (i.e. both players are gone)
+      if (d.status === 'finished') {
+        return { ok: false, error: 'That game has already ended. Ask your friend to create a new room.' };
+      }
       if (d.status !== 'waiting') {
-        return { ok: false, error: d.player2 ? 'Room is full.' : 'Game already in progress.' };
+        return { ok: false, error: 'Game already in progress.' };
       }
       if (d.player2) return { ok: false, error: 'Room is full.' };
 
@@ -123,6 +129,52 @@ const MP = (() => {
       status: 'playing',
       lastActivity: firebase.firestore.FieldValue.serverTimestamp(),
     }).catch(() => {});
+  }
+
+  // Reset the room after a game so both players can play again without re-sharing a code
+  async function resetRoom() {
+    if (!_code || !_slot) return { ok: false };
+    try {
+      await ref().update({
+        status:  'lobby',
+        winner:  null,
+        'player1.ready':     false,
+        'player1.gameState': null,
+        'player2.ready':     false,
+        'player2.gameState': null,
+        lastActivity: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      _cachedStatus = 'lobby';
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  // Find any public waiting room and join it, or create a new public room
+  async function quickMatch(playerName) {
+    _pruneExpired().catch(() => {});
+    try {
+      const snap = await col()
+        .where('status',   '==', 'waiting')
+        .where('isPublic', '==', true)
+        .limit(5)
+        .get();
+
+      for (const doc of snap.docs) {
+        const d = doc.data();
+        // Skip own room if somehow still open
+        if (d.player1 && d.player1.name === _sanitizeName(playerName, 'PLAYER')) continue;
+        // Try to join atomically
+        const result = await joinRoom(doc.id, playerName);
+        if (result.ok) return result;
+      }
+
+      // No open room found — create a public one
+      return await createRoom(playerName, true);
+    } catch (e) {
+      return { ok: false, error: 'Quick match failed. Please try again.' };
+    }
   }
 
   // ─── Game state sync ───────────────────────────────────────────────────────
@@ -260,6 +312,8 @@ const MP = (() => {
     get playerSlot(){ return _slot; },
     createRoom,
     joinRoom,
+    quickMatch,
+    resetRoom,
     setReady,
     setGameStarted,
     syncGameState,
