@@ -603,7 +603,7 @@ function lockActive() {
 
       const prev = level;
       totalLines += linesCleared;
-      const newLevel = calcLevel(totalLines);
+      const newLevel = Math.max(startLevel, calcLevel(totalLines));
 
       // Base score: T-spin overrides normal line-clear scoring
       let gained = tspinType === 'tspin'
@@ -845,7 +845,7 @@ function startGame() {
   board = createBoard(ROWS, COLS);
   score = 0;
   level = startLevel;
-  totalLines = startLevel * 10;
+  totalLines = 0;
   dropTimer = calcDropInterval(startLevel);
   lockTimer = null;
   lockMoves = 0;
