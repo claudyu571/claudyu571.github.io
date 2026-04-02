@@ -42,7 +42,7 @@ let elHoldCanvas, elHoldCtx;
 let elCombo, elComboBox;
 let elScoreAnnounce, elLevelAnnounce;
 let elFinalScore, elBestScore, elNewBest, elNameInput;
-let elLbBody;
+let elLbBody, elSideLbBody;
 
 // ─── Resize / Scaling ────────────────────────────────────────────────────────
 
@@ -52,8 +52,8 @@ function resizeCanvas() {
   const gap = isMobile ? 6 : 12;
   const mobileBarH = isMobile ? 96 : 0;
 
-  // Both side panels fixed at 160px
-  const panels = isMobile ? 0 : 160 * 2 + gap * 2;
+  // Both side panels fixed at 192px
+  const panels = isMobile ? 0 : 192 * 2 + gap * 2;
 
   const availW = window.innerWidth  - pad * 2 - panels;
   const availH = window.innerHeight - pad * 2 - mobileBarH;
@@ -68,13 +68,13 @@ function resizeCanvas() {
   }
 
   if (elNextCanvas) {
-    const pCell = Math.min(CELL, 28); // cap so panel stays compact (4*28+24 = 136px)
+    const pCell = Math.min(CELL, 34); // cap so piece previews fit with padding
     elNextCanvas.width  = 4 * pCell;
     elNextCanvas.height = 4 * pCell;
   }
 
   if (elHoldCanvas) {
-    const pCell = Math.min(CELL, 28);
+    const pCell = Math.min(CELL, 34);
     elHoldCanvas.width  = 4 * pCell;
     elHoldCanvas.height = 4 * pCell;
   }
@@ -277,6 +277,20 @@ function drawActivePiece() {
   }
 }
 
+function getFilledBounds(mat) {
+  let minR = mat.length, maxR = 0, minC = mat[0].length, maxC = 0;
+  for (let r = 0; r < mat.length; r++) {
+    for (let c = 0; c < mat[r].length; c++) {
+      if (!mat[r][c]) continue;
+      if (r < minR) minR = r;
+      if (r > maxR) maxR = r;
+      if (c < minC) minC = c;
+      if (c > maxC) maxC = c;
+    }
+  }
+  return { minR, maxR, minC, maxC, w: maxC - minC + 1, h: maxR - minR + 1 };
+}
+
 function drawNextPiece() {
   if (!nextPiece || !elNextCtx) return;
   const nc = elNextCanvas.width;
@@ -284,18 +298,16 @@ function drawNextPiece() {
   elNextCtx.clearRect(0, 0, nc, nr);
 
   const mat = nextPiece.matrix;
-  // Derive cell size from canvas size so it always fits
   const pCell = Math.floor(nc / 4);
-  const pieceW = mat[0].length * pCell;
-  const pieceH = mat.length * pCell;
-  const offsetX = Math.floor((nc - pieceW) / 2);
-  const offsetY = Math.floor((nr - pieceH) / 2);
+  const bounds = getFilledBounds(mat);
+  const offsetX = Math.floor((nc - bounds.w * pCell) / 2);
+  const offsetY = Math.floor((nr - bounds.h * pCell) / 2);
 
   for (let r = 0; r < mat.length; r++) {
     for (let c = 0; c < mat[r].length; c++) {
       if (!mat[r][c]) continue;
-      const px = offsetX + c * pCell;
-      const py = offsetY + r * pCell;
+      const px = offsetX + (c - bounds.minC) * pCell;
+      const py = offsetY + (r - bounds.minR) * pCell;
 
       elNextCtx.save();
       elNextCtx.translate(px, py);
@@ -317,18 +329,17 @@ function drawHoldPiece() {
   const piece = PIECES[holdPieceType];
   const mat = piece.matrices[0];
   const pCell = Math.floor(nc / 4);
-  const pieceW = mat[0].length * pCell;
-  const pieceH = mat.length * pCell;
-  const offsetX = Math.floor((nc - pieceW) / 2);
-  const offsetY = Math.floor((nr - pieceH) / 2);
+  const bounds = getFilledBounds(mat);
+  const offsetX = Math.floor((nc - bounds.w * pCell) / 2);
+  const offsetY = Math.floor((nr - bounds.h * pCell) / 2);
 
   const alpha = holdUsed ? 0.4 : 1;
 
   for (let r = 0; r < mat.length; r++) {
     for (let c = 0; c < mat[r].length; c++) {
       if (!mat[r][c]) continue;
-      const px = offsetX + c * pCell;
-      const py = offsetY + r * pCell;
+      const px = offsetX + (c - bounds.minC) * pCell;
+      const py = offsetY + (r - bounds.minR) * pCell;
 
       elHoldCtx.save();
       elHoldCtx.globalAlpha = alpha;
@@ -925,20 +936,37 @@ function escapeHtml(str) {
 }
 
 function renderLeaderboard(entries) {
-  if (!elLbBody) return;
-  const rankLabels = ['1ST', '2ND', '3RD'];
-  if (!entries || entries.length === 0) {
-    elLbBody.innerHTML = `<tr><td colspan="4" class="lb-empty">No scores yet. Be the first.</td></tr>`;
-    return;
+  // Overlay leaderboard (full table)
+  if (elLbBody) {
+    const rankLabels = ['1ST', '2ND', '3RD'];
+    if (!entries || entries.length === 0) {
+      elLbBody.innerHTML = `<tr><td colspan="4" class="lb-empty">No scores yet. Be the first.</td></tr>`;
+    } else {
+      elLbBody.innerHTML = entries.slice(0, 10).map((entry, i) => `
+        <tr class="${i < 3 ? 'lb-top' : ''}">
+          <td>${rankLabels[i] || (i + 1)}</td>
+          <td>${escapeHtml(entry.name)}</td>
+          <td>${String(entry.score).padStart(6, '0')}</td>
+          <td>${entry.level}</td>
+        </tr>
+      `).join('');
+    }
   }
-  elLbBody.innerHTML = entries.slice(0, 10).map((entry, i) => `
-    <tr class="${i < 3 ? 'lb-top' : ''}">
-      <td>${rankLabels[i] || (i + 1)}</td>
-      <td>${escapeHtml(entry.name)}</td>
-      <td>${String(entry.score).padStart(6, '0')}</td>
-      <td>${entry.level}</td>
-    </tr>
-  `).join('');
+
+  // Side panel leaderboard (compact)
+  if (elSideLbBody) {
+    if (!entries || entries.length === 0) {
+      elSideLbBody.innerHTML = `<tr><td colspan="3" class="lb-empty">No scores yet.</td></tr>`;
+    } else {
+      elSideLbBody.innerHTML = entries.slice(0, 5).map((entry, i) => `
+        <tr>
+          <td>${i + 1}.</td>
+          <td>${escapeHtml(entry.name)}</td>
+          <td>${String(entry.score).padStart(6, '0')}</td>
+        </tr>
+      `).join('');
+    }
+  }
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -986,6 +1014,7 @@ function init() {
   elNewBest    = document.getElementById('new-best');
   elNameInput  = document.getElementById('name-input');
   elLbBody     = document.getElementById('lb-body');
+  elSideLbBody = document.getElementById('side-lb-body');
 
   // Menu buttons
   bindBtn('btn-play',   () => startGame());

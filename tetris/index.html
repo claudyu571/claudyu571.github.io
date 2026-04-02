@@ -107,11 +107,19 @@
     </div>
   </div>
 
-  <!-- Right: next piece -->
-  <aside class="side-panel side-panel--right" aria-label="Next piece">
+  <!-- Right: next piece + live leaderboard -->
+  <aside class="side-panel side-panel--right" aria-label="Next piece and leaderboard">
     <div class="panel-box">
       <div class="panel-label">NEXT</div>
       <canvas id="next-canvas" aria-label="Next Tetrimino preview"></canvas>
+    </div>
+    <div class="panel-box side-lb">
+      <div class="panel-label">TOP SCORES</div>
+      <table class="side-lb-table" aria-label="Top scores">
+        <tbody id="side-lb-body">
+          <tr><td colspan="3" class="lb-empty">Loading…</td></tr>
+        </tbody>
+      </table>
     </div>
   </aside>
 
