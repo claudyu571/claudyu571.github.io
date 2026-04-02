@@ -308,6 +308,10 @@ body {
   font-weight: 700;
   width: 36px;
   height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  flex-shrink: 0;
+  box-sizing: border-box;
   border-radius: 50%;
   border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.06);
@@ -317,6 +321,8 @@ body {
   align-items: center;
   justify-content: center;
   transition: background 100ms ease;
+  line-height: 1;
+  padding: 0;
 }
 
 .level-btn:hover, .level-btn:focus-visible {
