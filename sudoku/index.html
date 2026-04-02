@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sudoku</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <main class="app">
+
+    <!-- ── Play area ─────────────────────────────────────────────────────── -->
+    <section class="play-area panel">
+
+      <div class="play-header">
+        <div>
+          <a href="/" class="back-link">&larr; All Games</a>
+          <p class="eyebrow" id="difficulty-eyebrow">Medium</p>
+          <h1>Sudoku</h1>
+        </div>
+        <button id="new-game-btn" class="secondary-btn" type="button">New Game</button>
+      </div>
+
+      <!-- Stats row -->
+      <div class="stats">
+        <div class="stat-card">
+          <span class="stat-label">Time</span>
+          <span id="timer" class="stat-value">0:00</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Errors</span>
+          <span id="error-count" class="stat-value">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Best</span>
+          <span id="best-time" class="stat-value">—</span>
+        </div>
+        <div class="stat-card status-card">
+          <span class="stat-label">Status</span>
+          <span id="status" class="stat-value">Playing</span>
+        </div>
+      </div>
+
+      <!-- Sudoku board (cells injected by JS) -->
+      <div id="board" class="board" role="grid" aria-label="Sudoku board"></div>
+
+      <!-- Mobile numpad (hidden on desktop) -->
+      <div id="numpad" class="numpad" aria-label="Number input">
+        <button class="num-btn" data-num="1" type="button">1</button>
+        <button class="num-btn" data-num="2" type="button">2</button>
+        <button class="num-btn" data-num="3" type="button">3</button>
+        <button class="num-btn" data-num="4" type="button">4</button>
+        <button class="num-btn" data-num="5" type="button">5</button>
+        <button class="num-btn" data-num="6" type="button">6</button>
+        <button class="num-btn" data-num="7" type="button">7</button>
+        <button class="num-btn" data-num="8" type="button">8</button>
+        <button class="num-btn" data-num="9" type="button">9</button>
+        <button class="num-btn num-erase" data-num="0" id="erase-btn" type="button">⌫</button>
+      </div>
+
+    </section>
+
+    <!-- ── Sidebar ────────────────────────────────────────────────────────── -->
+    <aside class="sidebar">
+      <section class="controls-panel panel">
+
+        <!-- Difficulty toggle -->
+        <div class="mode-toggle" role="group" aria-label="Difficulty">
+          <button id="diff-easy-btn"   class="mode-toggle-btn"        type="button">Easy</button>
+          <button id="diff-medium-btn" class="mode-toggle-btn active" type="button">Medium</button>
+          <button id="diff-hard-btn"   class="mode-toggle-btn"        type="button">Hard</button>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="controls">
+          <button id="undo-btn"  type="button">Undo</button>
+          <button id="reset-btn" class="secondary-btn" type="button">Reset</button>
+        </div>
+
+        <!-- Pencil mode toggle -->
+        <label class="toggle-label" style="margin-top: 14px;">
+          <input id="pencil-toggle" type="checkbox" />
+          <span>Pencil marks</span>
+        </label>
+
+        <p class="help">
+          Click a cell, then type 1–9.<br>
+          <kbd>Backspace</kbd> / <kbd>Delete</kbd> to erase.<br>
+          Arrow keys to navigate. <kbd>U</kbd> to undo.
+        </p>
+
+      </section>
+
+      <!-- Leaderboard panel -->
+      <section class="leaderboard panel">
+        <div class="leaderboard-header">
+          <h2>Leaderboard</h2>
+        </div>
+        <!-- Difficulty tabs -->
+        <div class="mode-toggle lb-tabs" role="tablist" aria-label="Leaderboard difficulty">
+          <button id="lb-easy-btn"   class="mode-toggle-btn"        role="tab" type="button">Easy</button>
+          <button id="lb-medium-btn" class="mode-toggle-btn active" role="tab" type="button">Medium</button>
+          <button id="lb-hard-btn"   class="mode-toggle-btn"        role="tab" type="button">Hard</button>
+        </div>
+        <table id="lb-table" aria-label="Leaderboard">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th class="col-r">Time</th>
+              <th class="col-r">Err</th>
+            </tr>
+          </thead>
+          <tbody id="lb-body">
+            <tr><td colspan="4" class="lb-empty">No entries yet.</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </aside>
+
+  </main>
+
+  <!-- ── Win overlay ───────────────────────────────────────────────────────── -->
+  <div id="win-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="win-title">
+    <div class="modal">
+      <h2 id="win-title">Puzzle Solved!</h2>
+      <p id="win-message">You completed the puzzle.</p>
+      <div class="modal-field">
+        <label class="modal-label" for="win-name-input">Your name</label>
+        <input id="win-name-input" type="text" maxlength="24" placeholder="Enter your name…" autocomplete="off" />
+      </div>
+      <div class="modal-actions">
+        <button id="win-save-btn" type="button">Save Score</button>
+        <button id="win-skip-btn" class="secondary-btn" type="button">Skip</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="logic.js" defer></script>
+  <script src="main.js" defer></script>
+</body>
+</html>

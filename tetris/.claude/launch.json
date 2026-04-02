@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tetris",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "5678", "."],
+      "port": 5678
+    }
+  ]
+}

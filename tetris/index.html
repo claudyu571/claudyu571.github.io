@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TETRIS</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div id="score-announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+<div id="level-announce" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+
+<a href="/" class="back-link">&larr; All Games</a>
+
+<div class="game-wrapper">
+
+  <!-- Left: stats -->
+  <aside class="side-panel" aria-label="Game stats">
+    <div class="panel-box">
+      <div class="panel-label">SCORE</div>
+      <div class="panel-value" id="hud-score">000000</div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-label">LEVEL</div>
+      <div class="panel-value" id="hud-level">0</div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-label">LINES</div>
+      <div class="panel-value" id="hud-lines">0</div>
+    </div>
+  </aside>
+
+  <!-- Center: board + overlays -->
+  <div class="board-container">
+    <canvas id="board" role="application" aria-label="Tetris game board" tabindex="0"></canvas>
+
+    <div id="overlay-menu" class="overlay" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+      <h1 class="overlay-title" id="menu-title">TETRIS</h1>
+      <p class="overlay-subtitle">USE ARROW KEYS TO PLAY</p>
+      <button id="btn-play" class="btn btn-primary">PLAY</button>
+      <button id="btn-lb"   class="btn btn-secondary">LEADERBOARD</button>
+      <button id="btn-how"  class="btn btn-secondary">HOW TO PLAY</button>
+    </div>
+
+    <div id="overlay-pause" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="pause-title">
+      <h2 class="overlay-title" id="pause-title">PAUSED</h2>
+      <button id="btn-resume" class="btn btn-primary">RESUME</button>
+      <button id="btn-quit"   class="btn btn-danger">QUIT TO MENU</button>
+    </div>
+
+    <div id="overlay-game-over" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="go-title">
+      <h2 class="overlay-title" id="go-title">GAME OVER</h2>
+      <div class="score-row">
+        <div class="panel-label">FINAL SCORE</div>
+        <div class="panel-value" id="final-score">000000</div>
+      </div>
+      <div class="score-row">
+        <div class="panel-label">BEST</div>
+        <div class="panel-value" id="best-score">000000</div>
+        <div id="new-best" style="display:none">NEW BEST</div>
+      </div>
+      <div class="name-row">
+        <label for="name-input">ENTER YOUR NAME TO SAVE</label>
+        <input id="name-input" type="text" maxlength="12" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="PLAYER" aria-label="Enter your name" />
+      </div>
+      <button id="btn-save"       class="btn btn-primary">SAVE SCORE</button>
+      <button id="btn-again"      class="btn btn-secondary">PLAY AGAIN</button>
+      <button id="btn-lb-from-go" class="btn btn-secondary">LEADERBOARD</button>
+    </div>
+
+    <div id="overlay-leaderboard" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="lb-title">
+      <h2 class="overlay-title" id="lb-title">LEADERBOARD</h2>
+      <table class="lb-table" aria-label="Top scores">
+        <thead><tr>
+          <th scope="col">RANK</th><th scope="col">NAME</th>
+          <th scope="col">SCORE</th><th scope="col">LEVEL</th>
+        </tr></thead>
+        <tbody id="lb-body">
+          <tr><td colspan="4" class="lb-empty">No scores yet. Be the first.</td></tr>
+        </tbody>
+      </table>
+      <button id="btn-lb-close" class="btn btn-secondary">BACK</button>
+    </div>
+
+    <div id="overlay-controls" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="ctrl-title">
+      <h2 class="overlay-title" id="ctrl-title">HOW TO PLAY</h2>
+      <div class="controls-grid">
+        <span class="ctrl-action">Move left</span>   <span class="ctrl-key">← Arrow</span>
+        <span class="ctrl-action">Move right</span>  <span class="ctrl-key">→ Arrow</span>
+        <span class="ctrl-action">Rotate CW</span>   <span class="ctrl-key">↑ / Z</span>
+        <span class="ctrl-action">Rotate CCW</span>  <span class="ctrl-key">X</span>
+        <span class="ctrl-action">Soft drop</span>   <span class="ctrl-key">↓ Arrow</span>
+        <span class="ctrl-action">Hard drop</span>   <span class="ctrl-key">Space</span>
+        <span class="ctrl-action">Pause</span>       <span class="ctrl-key">P / Esc</span>
+      </div>
+      <button id="btn-controls-close" class="btn btn-secondary">BACK</button>
+    </div>
+  </div>
+
+  <!-- Right: next piece -->
+  <aside class="side-panel side-panel--right" aria-label="Next piece">
+    <div class="panel-box">
+      <div class="panel-label">NEXT</div>
+      <canvas id="next-canvas" aria-label="Next Tetrimino preview"></canvas>
+    </div>
+  </aside>
+
+</div>
+
+<nav class="mobile-controls" aria-label="Touch controls">
+  <div class="dpad" role="group" aria-label="Directional controls">
+    <button id="btn-left"  class="dpad-btn dpad-left"  aria-label="Move left">&#8592;</button>
+    <button id="btn-right" class="dpad-btn dpad-right" aria-label="Move right">&#8594;</button>
+    <button id="btn-down"  class="dpad-btn dpad-down"  aria-label="Soft drop">&#8595;</button>
+  </div>
+  <div class="action-btns" role="group" aria-label="Action buttons">
+    <button id="btn-rcw"  class="action-btn" aria-label="Rotate clockwise">ROT CW</button>
+    <button id="btn-rccw" class="action-btn" aria-label="Rotate counter-clockwise">ROT CCW</button>
+    <button id="btn-drop" class="action-btn" aria-label="Hard drop">DROP</button>
+  </div>
+</nav>
+
+<script src="logic.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,608 @@
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+:root {
+  color-scheme: dark;
+  font-family: "Trebuchet MS", "Gill Sans", sans-serif;
+
+  /* Base palette (matches Snake game) */
+  --bg: #0c1311;
+  --bg-accent: #12201b;
+  --panel: rgba(18, 30, 26, 0.92);
+  --panel-border: rgba(142, 179, 144, 0.22);
+  --text: #edf4ee;
+  --muted: #9eb4a1;
+  --accent: #74d680;
+  --accent-strong: #2d8f47;
+  --danger: #ff7878;
+
+  /* Sudoku-specific */
+  --cell-size: 56px;
+  --cell-given:   #edf4ee;
+  --cell-user:    #74d680;
+  --cell-error:   #ff7878;
+  --cell-pencil:  #9eb4a1;
+  --cell-selected: rgba(116, 214, 128, 0.20);
+  --cell-peer:     rgba(116, 214, 128, 0.07);
+  --cell-same-num: rgba(116, 214, 128, 0.15);
+  --box-border:    rgba(142, 179, 144, 0.55);
+  --cell-border:   rgba(142, 179, 144, 0.15);
+}
+
+/* ── Back Link ─────────────────────────────────────────────────────────────── */
+.back-link {
+  display: inline-block;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  transition: color 120ms ease;
+}
+
+.back-link:hover {
+  color: var(--accent);
+}
+
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(116, 214, 128, 0.14), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(73, 134, 96, 0.18), transparent 34%),
+    linear-gradient(180deg, var(--bg-accent), var(--bg));
+  color: var(--text);
+}
+
+button, input { font: inherit; }
+
+/* ── Layout ────────────────────────────────────────────────────────────────── */
+.app {
+  width: 100vw;
+  min-height: 100vh;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 20px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(10px);
+}
+
+.hidden { display: none !important; }
+
+/* ── Play area ─────────────────────────────────────────────────────────────── */
+.play-area {
+  min-height: calc(100vh - 48px);
+  padding: 20px;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.play-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+h1, h2 { margin: 0; }
+
+h1 { font-size: clamp(2rem, 3vw, 2.8rem); line-height: 1; }
+
+/* ── Stat cards ────────────────────────────────────────────────────────────── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stat-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  display: grid;
+  gap: 6px;
+}
+
+.status-card { border-color: rgba(116, 214, 128, 0.18); }
+
+.stat-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.stat-value {
+  font-size: clamp(1rem, 2vw, 1.4rem);
+  font-weight: 700;
+}
+
+/* ── Sudoku Board ──────────────────────────────────────────────────────────── */
+.board {
+  display: grid;
+  grid-template-columns: repeat(9, var(--cell-size));
+  grid-template-rows: repeat(9, var(--cell-size));
+  border: 2px solid var(--box-border);
+  border-radius: 10px;
+  overflow: hidden;
+  width: fit-content;
+  justify-self: center;
+  align-self: center;
+  outline: none;
+}
+
+/* ── Cell ──────────────────────────────────────────────────────────────────── */
+.cell {
+  width: var(--cell-size);
+  height: var(--cell-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  border-right: 1px solid var(--cell-border);
+  border-bottom: 1px solid var(--cell-border);
+  font-size: calc(var(--cell-size) * 0.46);
+  font-weight: 700;
+  transition: background 100ms ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  background: transparent;
+}
+
+/* Thick border after every 3rd column (but not the last) */
+.cell:nth-child(3n+3):not(:nth-child(9n)) {
+  border-right: 2px solid var(--box-border);
+}
+
+/* Remove right border on last column (outer border from .board handles it) */
+.cell:nth-child(9n) {
+  border-right: none;
+}
+
+/* Thick border below rows 3 and 6 (cells 19–27 and 46–54) */
+.cell:nth-child(n+19):nth-child(-n+27),
+.cell:nth-child(n+46):nth-child(-n+54) {
+  border-bottom: 2px solid var(--box-border);
+}
+
+/* Remove bottom border on last row */
+.cell:nth-child(n+73) {
+  border-bottom: none;
+}
+
+/* ── Cell state classes ────────────────────────────────────────────────────── */
+.cell.peer     { background: var(--cell-peer); }
+.cell.same-num { background: var(--cell-same-num); }
+.cell.selected { background: var(--cell-selected); }
+
+.cell.given    { color: var(--cell-given); }
+.cell.user-entry { color: var(--cell-user); }
+.cell.error    { color: var(--cell-error) !important; }
+
+/* ── Pencil marks ──────────────────────────────────────────────────────────── */
+.pencil-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  width: 100%;
+  height: 100%;
+  padding: 2px;
+}
+
+.pencil-digit {
+  font-size: calc(var(--cell-size) * 0.22);
+  font-weight: 400;
+  color: var(--cell-pencil);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ── Mobile numpad ─────────────────────────────────────────────────────────── */
+.numpad {
+  display: none;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  padding: 4px 0;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .numpad { display: grid; }
+
+  .play-area {
+    grid-template-rows: auto auto auto auto;
+  }
+}
+
+.num-btn {
+  min-height: 52px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 100ms ease, border-color 100ms ease;
+}
+
+.num-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.11);
+  transform: none;
+  filter: none;
+}
+
+.num-btn:active {
+  background: rgba(116, 214, 128, 0.18);
+  border-color: rgba(116, 214, 128, 0.35);
+}
+
+.num-erase { font-size: 1.1rem; }
+
+/* Pencil mode tint on numpad */
+.numpad.pencil-active .num-btn {
+  background: rgba(116, 214, 128, 0.10);
+  border-color: rgba(116, 214, 128, 0.22);
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────────────────── */
+.sidebar {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+
+.controls-panel,
+.leaderboard {
+  padding: 18px;
+}
+
+/* ── Difficulty toggle ─────────────────────────────────────────────────────── */
+.mode-toggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  padding: 4px;
+  gap: 3px;
+  margin-bottom: 14px;
+}
+
+.mode-toggle-btn {
+  flex: 1;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 160ms ease, color 160ms ease;
+  cursor: pointer;
+}
+
+.mode-toggle-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  transform: none;
+  filter: none;
+}
+
+.mode-toggle-btn.active {
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: #08100d;
+}
+
+/* ── Action buttons ────────────────────────────────────────────────────────── */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+button {
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: #08100d;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease, filter 120ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.secondary-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+/* ── Toggle (checkbox pill) ────────────────────────────────────────────────── */
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-label input[type="checkbox"] {
+  width: 36px;
+  height: 20px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+  transition: background 160ms ease;
+  flex-shrink: 0;
+}
+
+.toggle-label input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--muted);
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.toggle-label input[type="checkbox"]:checked {
+  background: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+.toggle-label input[type="checkbox"]:checked::after {
+  transform: translateX(16px);
+  background: var(--accent);
+}
+
+/* ── Help text ─────────────────────────────────────────────────────────────── */
+.help {
+  margin: 14px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 0.88rem;
+}
+
+.help kbd {
+  font-family: inherit;
+  font-size: 0.82em;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+/* ── Leaderboard ───────────────────────────────────────────────────────────── */
+.leaderboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.lb-tabs { margin-bottom: 12px; }
+
+.leaderboard table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.leaderboard th,
+.leaderboard td {
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  text-align: left;
+}
+
+.leaderboard th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.col-r { text-align: right !important; }
+
+.leaderboard tbody tr:last-child td { border-bottom: none; }
+
+.lb-rank {
+  font-size: 0.78rem;
+  color: var(--muted);
+  min-width: 18px;
+}
+
+.lb-rank.gold   { color: #f5c842; font-weight: 700; }
+.lb-rank.silver { color: #b0b8c1; font-weight: 700; }
+.lb-rank.bronze { color: #cd7f32; font-weight: 700; }
+
+.lb-name { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.lb-highlight td { color: var(--accent); }
+
+.lb-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 20px 0 !important;
+  font-size: 0.88rem;
+}
+
+/* ── Modal input ───────────────────────────────────────────────────────────── */
+.modal-field {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  margin-bottom: 4px;
+}
+
+.modal-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.modal input[type="text"] {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.modal input[type="text"]::placeholder {
+  color: rgba(237, 244, 238, 0.35);
+}
+
+.modal input[type="text"]:focus {
+  outline: none;
+  border-color: rgba(116, 214, 128, 0.45);
+}
+
+.modal-actions { gap: 10px; }
+
+/* ── Win modal ─────────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(5, 8, 7, 0.74);
+  z-index: 10;
+}
+
+.modal {
+  width: min(92vw, 380px);
+  padding: 28px 24px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #15231d, #0f1814);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+
+.modal p {
+  margin: 10px 0 18px;
+  color: var(--muted);
+}
+
+.modal-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 980px) {
+  :root { --cell-size: 52px; }
+
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  .play-area {
+    min-height: auto;
+  }
+
+  .sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  :root { --cell-size: 40px; }
+
+  .app {
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .play-area {
+    min-height: auto;
+    padding: 16px;
+  }
+
+  .play-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sidebar {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .controls {
+    flex-direction: column;
+  }
+
+  button, .secondary-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  :root { --cell-size: calc((100vw - 32px - 4px) / 9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
