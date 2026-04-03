@@ -13,6 +13,8 @@ let BOARD_H = ROWS * CELL;
 const LOCK_DELAY = 500; // ms before a grounded piece locks
 const TOAST_DURATION = 800; // ms
 const LEVEL_TOAST_DURATION = 1200;
+const MP_SYNC_INTERVAL = 900; // ms between multiplayer updates while state is changing
+const MP_HEARTBEAT_INTERVAL = 3000; // ms between idle keepalive updates
 
 const LINE_LABELS = ['', 'SINGLE', 'DOUBLE', 'TRIPLE', 'TETRIS!'];
 
@@ -47,6 +49,9 @@ let mpReady = false;           // this player's ready state in lobby
 let opponentState = null;      // latest data from Firebase for the opponent
 let mpCountdownSecs = 0;       // pre-game countdown value (0 = not counting)
 let mpCountdownInterval = null; // setInterval handle for the countdown
+let mpStateVersion = 0;        // increments when local multiplayer state changes materially
+let mpLastSyncVersion = -1;    // last version pushed to Firestore
+let mpLastSyncKey = '';        // fingerprint of the last pushed multiplayer state
 
 // ─── DOM References ───────────────────────────────────────────────────────────
 
@@ -66,6 +71,8 @@ let elMpP1Name, elMpP2Name, elMpP1Status, elMpP2Status;
 let elMpReadyBtn, elMpLobbyCodeDisplay;
 let elMpCountdownWrap, elMpCountdownNum;
 let elMpMyLabel;
+let elMpSelfName, elMpSelfScore, elMpSelfLevel;
+let elMpWaitTitle, elMpWaitSubtitle;
 let elMpResultTitle, elMpResultScore, elMpResultOppScore;
 let elOppBoard, elOppCtx, elOppNameDisplay, elOppScore, elOppLevel;
 let elMpOpponentWrap;
@@ -77,6 +84,7 @@ function resizeCanvas() {
   const pad = isMobile ? 6 : 12;
   const gap = isMobile ? 6 : 12;
   const mobileBarH = isMobile ? 96 : 0;
+  const mpChromeH = (!isMobile && multiplayerMode) ? 52 : 0;
 
   // Both side panels fixed at 192px; in multiplayer the opponent board is the same
   // size as the main board, so divide the available width equally between both boards.
@@ -84,7 +92,7 @@ function resizeCanvas() {
   const boardSlots = (!isMobile && multiplayerMode) ? 2 : 1;
 
   const availW = (window.innerWidth  - pad * 2 - panels - gap * (boardSlots - 1)) / boardSlots;
-  const availH =  window.innerHeight - pad * 2 - mobileBarH;
+  const availH =  window.innerHeight - pad * 2 - mobileBarH - mpChromeH;
 
   CELL = Math.max(14, Math.floor(Math.min(availH / ROWS, availW / COLS)));
   BOARD_W = COLS * CELL;
@@ -299,6 +307,59 @@ function drawOpponentBoard() {
     oc.textBaseline = 'middle';
     oc.fillText('GAME OVER', OPP_W / 2, OPP_H / 2);
   }
+}
+
+function markMultiplayerDirty() {
+  if (!multiplayerMode) return;
+  mpStateVersion++;
+}
+
+function createMultiplayerSnapshot(gameOver = false) {
+  return {
+    board: encodeBoard(board),
+    piece: (!gameOver && activePiece) ? {
+      type: activePiece.type,
+      x: activePiece.x,
+      y: activePiece.y,
+      rotation: activePiece.rotation,
+    } : null,
+    score,
+    level,
+    lines: totalLines,
+    gameOver,
+  };
+}
+
+function getMultiplayerSnapshotKey(snapshot) {
+  const pieceKey = snapshot.piece
+    ? `${snapshot.piece.type}:${snapshot.piece.x}:${snapshot.piece.y}:${snapshot.piece.rotation}`
+    : 'none';
+  return [
+    snapshot.score,
+    snapshot.level,
+    snapshot.lines,
+    snapshot.gameOver ? 1 : 0,
+    pieceKey,
+    mpStateVersion,
+  ].join('|');
+}
+
+function syncMultiplayerState({ immediate = false, gameOver = false } = {}) {
+  if (!multiplayerMode) return Promise.resolve();
+
+  const snapshot = createMultiplayerSnapshot(gameOver);
+  const key = getMultiplayerSnapshotKey(snapshot);
+  if (!immediate && key === mpLastSyncKey) return Promise.resolve();
+
+  mpLastSyncKey = key;
+  mpLastSyncVersion = mpStateVersion;
+
+  if (immediate) {
+    return MP.syncGameStateNow(snapshot);
+  }
+
+  MP.syncGameState(snapshot);
+  return Promise.resolve();
 }
 
 function buildGridCache() {
@@ -560,6 +621,8 @@ function updateHUD() {
   if (elScore) elScore.textContent = String(score).padStart(6, '0');
   if (elLevel) elLevel.textContent = level;
   if (elLines) elLines.textContent = totalLines;
+  if (elMpSelfScore) elMpSelfScore.textContent = String(score || 0).padStart(6, '0');
+  if (elMpSelfLevel) elMpSelfLevel.textContent = level || 0;
   if (elComboBox) {
     if (combo >= 2) {
       if (elComboBox.style.display === 'none') {
@@ -591,13 +654,16 @@ function spawnNext() {
 
   if (!isValidPosition(board, activePiece)) {
     triggerGameOver();
+    return;
   }
+  markMultiplayerDirty();
 }
 
 function tryMove(dx, dy) {
   if (!activePiece) return false;
   if (isValidPosition(board, activePiece, dx, dy)) {
     activePiece = { ...activePiece, x: activePiece.x + dx, y: activePiece.y + dy };
+    markMultiplayerDirty();
     if (dx !== 0) lastActionWasRotation = false; // lateral move breaks T-spin eligibility
     if (dy === 0 && lockTimer !== null && lockMoves < 15) {
       // Reset lock delay on successful lateral move while grounded
@@ -614,6 +680,7 @@ function tryRotateActive(dir) {
   const rotated = tryRotate(board, activePiece, dir);
   if (rotated) {
     activePiece = rotated;
+    markMultiplayerDirty();
     lastActionWasRotation = true; // track for T-spin detection
     if (lockTimer !== null && lockMoves < 15) {
       lockTimer = LOCK_DELAY;
@@ -659,7 +726,9 @@ function holdCurrentPiece() {
 
   if (!isValidPosition(board, activePiece)) {
     triggerGameOver();
+    return;
   }
+  markMultiplayerDirty();
   // render() will call drawHoldPiece()/drawNextPiece() next frame via cache-aware guards
 }
 
@@ -686,6 +755,7 @@ function hardDrop() {
     dropped++;
   }
   score += dropped * 2;
+  markMultiplayerDirty();
   announceScore();
   lockActive();
 }
@@ -698,6 +768,7 @@ function lockActive() {
   const tspinType = checkTSpin(board, activePiece);
 
   board = lockPiece(board, activePiece);
+  markMultiplayerDirty();
   const indices = getClearedLineIndices(board);
 
   if (indices.length > 0) {
@@ -745,6 +816,7 @@ function lockActive() {
       }
       score += gained;
       level = newLevel;
+      markMultiplayerDirty();
 
       announceScore();
       if (level > prev) announceLevel();
@@ -775,6 +847,7 @@ function lockActive() {
       if (samePiece && linesCleared > 0 && tspinType === 'none') spawnScorePop('SAME PIECE!', '#FFE600', midRow - 1);
 
       spawnNext();
+      syncMultiplayerState({ immediate: true }).catch(() => {});
     }, reducedMotion ? 0 : 200);
   } else {
     if (tspinType === 'tspin') {
@@ -784,11 +857,13 @@ function lockActive() {
       lastClearWasTetris = true;
       spawnScorePop('T-SPIN!', '#BF5FFF', Math.floor(ROWS / 2));
       showToast('T-SPIN!');
+      markMultiplayerDirty();
     } else {
       lastClearWasTetris = false; // non-difficult clear breaks B2B chain
     }
     combo = 0;
     spawnNext();
+    syncMultiplayerState({ immediate: true }).catch(() => {});
   }
 
   lockTimer = null;
@@ -832,22 +907,17 @@ function gameLoop(timestamp) {
       if (lockTimer === null) lockTimer = LOCK_DELAY;
     } else if (softDropActive) {
       score += 1; // 1 point per cell soft-dropped
+      markMultiplayerDirty();
     }
   }
 
-  // Multiplayer: sync game state to Firebase periodically
+  // Multiplayer: sync on meaningful changes, with a low-rate heartbeat while idle.
   if (multiplayerMode) {
     mpSyncTimer -= dt;
     if (mpSyncTimer <= 0) {
-      mpSyncTimer = 150; // sync every 150 ms
-      MP.syncGameState({
-        board:    encodeBoard(board),
-        piece:    activePiece ? { type: activePiece.type, x: activePiece.x, y: activePiece.y, rotation: activePiece.rotation } : null,
-        score,
-        level,
-        lines:    totalLines,
-        gameOver: false,
-      });
+      const changed = mpStateVersion !== mpLastSyncVersion;
+      mpSyncTimer = changed ? MP_SYNC_INTERVAL : MP_HEARTBEAT_INTERVAL;
+      syncMultiplayerState().catch(() => {});
     }
   }
 
@@ -1003,6 +1073,9 @@ function startGame() {
   lastTimestamp = null;
   mpSyncTimer = 0;
   mpGameStarting = false;
+  mpStateVersion = 0;
+  mpLastSyncVersion = -1;
+  mpLastSyncKey = '';
   keysDown.clear();
 
   bag = createBag();
@@ -1041,10 +1114,7 @@ function triggerGameOver() {
 
   // Multiplayer: sync final state then let Firebase decide winner
   if (multiplayerMode) {
-    MP.syncGameStateNow({
-      board: encodeBoard(board), piece: null,
-      score, level, lines: totalLines, gameOver: true,
-    }).then(() => MP.signalGameOver());
+    syncMultiplayerState({ immediate: true, gameOver: true }).then(() => MP.signalGameOver());
     return; // result overlay comes from handleRoomUpdate
   }
 
@@ -1086,6 +1156,20 @@ function showOverlay(name) {
   }
 }
 
+function configureMpWaitingOverlay(roomCode) {
+  const isPublicRoom = roomCode === 'PUBLIC';
+  if (elMpWaitTitle) {
+    elMpWaitTitle.textContent = isPublicRoom ? 'QUICK MATCH' : 'ROOM CREATED';
+  }
+  if (elMpWaitSubtitle) {
+    elMpWaitSubtitle.textContent = isPublicRoom ? 'WAITING FOR AN OPPONENT' : 'SHARE THIS CODE WITH A FRIEND';
+  }
+  if (elMpRoomCodeDisplay) {
+    elMpRoomCodeDisplay.textContent = roomCode || '------';
+    elMpRoomCodeDisplay.hidden = isPublicRoom;
+  }
+}
+
 // ─── Multiplayer Logic ────────────────────────────────────────────────────────
 
 function mpUpdateLobby(room) {
@@ -1115,7 +1199,7 @@ function mpUpdateLobby(room) {
 
 function mpBeginCountdown(room) {
   if (mpCountdownInterval || mpGameStarting) return; // already running
-  mpCountdownSecs = 10;
+  mpCountdownSecs = 5;
   if (elMpCountdownWrap) elMpCountdownWrap.hidden = false;
   if (elMpCountdownNum)  elMpCountdownNum.textContent = mpCountdownSecs;
 
@@ -1147,10 +1231,9 @@ function mpStartGame(room) {
   const oppSlot = mySlot === 'player1' ? 'player2' : 'player1';
   const myName  = (room[mySlot]  || {}).name || 'YOU';
   const oppName = (room[oppSlot] || {}).name || 'OPPONENT';
-  if (elMpMyLabel) {
-    elMpMyLabel.innerHTML =
-      `<span class="mp-opp-label">YOU</span><span class="mp-opp-name">${myName}</span>`;
-  }
+  if (elMpSelfName) elMpSelfName.textContent = myName;
+  if (elMpSelfScore) elMpSelfScore.textContent = '000000';
+  if (elMpSelfLevel) elMpSelfLevel.textContent = '0';
   if (elOppNameDisplay) elOppNameDisplay.textContent = oppName;
   if (elOppScore)  elOppScore.textContent  = '000000';
   if (elOppLevel)  elOppLevel.textContent  = '0';
@@ -1163,6 +1246,9 @@ function mpStartGame(room) {
 
   multiplayerMode = true;
   mpSyncTimer = 0;
+  mpStateVersion = 0;
+  mpLastSyncVersion = -1;
+  mpLastSyncKey = '';
   document.querySelector('.game-wrapper').classList.add('game-wrapper--mp');
   if (elMpOpponentWrap) elMpOpponentWrap.setAttribute('aria-hidden', 'false');
   resizeCanvas(); // recalculate board size accounting for opponent panel
@@ -1221,6 +1307,7 @@ function handleRoomUpdate({ data, deleted }) {
 
   // Lobby updates
   if ((room.status === 'waiting' || room.status === 'lobby') && state !== 'PLAYING') {
+    if (room.status === 'waiting') configureMpWaitingOverlay(room.roomCode);
     showOverlay(room.status === 'lobby' ? 'mp-lobby' : 'mp-waiting');
     if (room.status === 'lobby') mpUpdateLobby(room);
   }
@@ -1410,6 +1497,11 @@ function init() {
   elMpCountdownWrap    = document.getElementById('mp-countdown-wrap');
   elMpCountdownNum     = document.getElementById('mp-countdown-num');
   elMpMyLabel          = document.getElementById('mp-my-label');
+  elMpSelfName         = document.getElementById('mp-self-name');
+  elMpSelfScore        = document.getElementById('mp-self-score');
+  elMpSelfLevel        = document.getElementById('mp-self-level');
+  elMpWaitTitle        = document.getElementById('mp-wait-title');
+  elMpWaitSubtitle     = overlayMpWaiting ? overlayMpWaiting.querySelector('.overlay-subtitle') : null;
   elMpResultTitle     = document.getElementById('mp-result-title');
   elMpResultScore     = document.getElementById('mp-result-score');
   elMpResultOppScore  = document.getElementById('mp-result-opp-score');
@@ -1459,7 +1551,7 @@ function init() {
     const name = getSavedName() || 'PLAYER';
     const result = await MP.createRoom(name);
     if (!result.ok) { alert(result.error); return; }
-    if (elMpRoomCodeDisplay) elMpRoomCodeDisplay.textContent = result.code;
+    configureMpWaitingOverlay(result.code);
     showOverlay('mp-waiting');
     MP.subscribe(handleRoomUpdate);
   });
@@ -1474,7 +1566,7 @@ function init() {
     if (!result.ok) { alert(result.error || 'Quick match failed.'); return; }
     MP.subscribe(handleRoomUpdate);
     if (MP.playerSlot === 'player1') {
-      if (elMpRoomCodeDisplay) elMpRoomCodeDisplay.textContent = result.code;
+      configureMpWaitingOverlay(result.code);
       showOverlay('mp-waiting');
     } else {
       showOverlay('mp-lobby');
@@ -1537,6 +1629,9 @@ function init() {
       // Room gone (opponent left) — fall back to menu
       await MP.leaveRoom();
       showOverlay('mp-menu');
+    } else if (reset.status === 'waiting') {
+      configureMpWaitingOverlay(MP.roomCode);
+      showOverlay('mp-waiting');
     } else {
       showOverlay('mp-lobby');
     }

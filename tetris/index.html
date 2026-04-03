@@ -43,9 +43,18 @@
   <div class="mp-boards-wrap">
 
   <!-- Player board -->
-  <div class="mp-board-col">
-    <div class="mp-board-label" id="mp-my-label" aria-hidden="true"></div>
-  <div class="board-container">
+  <div class="mp-board-col mp-board-shell">
+    <div class="mp-board-label mp-board-label--top" id="mp-my-label" aria-hidden="true">
+      <div class="mp-board-label-main">
+        <span class="mp-opp-label">YOU</span>
+        <span class="mp-opp-name" id="mp-self-name">PLAYER</span>
+      </div>
+      <div class="mp-board-meta" aria-hidden="true">
+        <span>SCORE <span id="mp-self-score">000000</span></span>
+        <span>LV <span id="mp-self-level">0</span></span>
+      </div>
+    </div>
+  <div class="board-container mp-self-board-container">
     <canvas id="board" role="application" aria-label="Tetris game board" tabindex="0"></canvas>
 
     <div id="overlay-menu" class="overlay" role="dialog" aria-modal="true" aria-labelledby="menu-title">
@@ -192,17 +201,19 @@
   </div><!-- /.mp-board-col -->
 
   <!-- Multiplayer: opponent board (hidden in single-player) -->
-  <div class="mp-opponent-wrap" id="mp-opponent-wrap" aria-label="Opponent's board" aria-hidden="true">
-    <div class="mp-board-label mp-opp-label-wrap">
-      <span class="mp-opp-label">OPPONENT</span>
-      <span class="mp-opp-name" id="opp-name-display"></span>
+  <div class="mp-opponent-wrap mp-board-shell" id="mp-opponent-wrap" aria-label="Opponent's board" aria-hidden="true">
+    <div class="mp-board-label mp-board-label--top mp-opp-label-wrap">
+      <div class="mp-board-label-main">
+        <span class="mp-opp-label">OPPONENT</span>
+        <span class="mp-opp-name" id="opp-name-display"></span>
+      </div>
+      <div class="mp-board-meta" aria-hidden="true">
+        <span>SCORE <span id="opp-score">000000</span></span>
+        <span>LV <span id="opp-level">0</span></span>
+      </div>
     </div>
     <div class="mp-opp-board-container">
       <canvas id="opp-board"></canvas>
-    </div>
-    <div class="mp-opp-stats">
-      <span>SCORE <span id="opp-score">000000</span></span>
-      <span>LV <span id="opp-level">0</span></span>
     </div>
   </div>
 

@@ -418,12 +418,58 @@ body {
   display: flex;
 }
 
+.mp-board-label--top {
+  width: 100%;
+  position: relative;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0 104px 10px 10px;
+  min-height: 34px;
+}
+
+.mp-board-label-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.mp-board-meta {
+  position: absolute;
+  top: 0;
+  right: 10px;
+  display: flex;
+  gap: 12px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.mp-board-meta span span {
+  color: var(--text);
+  font-weight: 600;
+}
+
 /* Column wrapper for player's own board */
 .mp-board-col {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 6px;
   flex-shrink: 0;
+}
+
+.game-wrapper--mp .mp-board-shell {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 0;
+  padding: 8px 0 0;
+  backdrop-filter: blur(10px);
 }
 
 /* ─── Multiplayer: Opponent Board ────────────────────────────────────────── */
@@ -431,7 +477,7 @@ body {
   display: none; /* hidden until multiplayer game starts */
   flex-direction: column;
   align-items: center;
-  gap: 0;
+  gap: 6px;
   flex-shrink: 0;
 }
 
@@ -440,8 +486,7 @@ body {
 }
 
 .mp-opp-label-wrap {
-  /* inherits .mp-board-label layout */
-  gap: 2px;
+  gap: 12px;
 }
 
 .mp-opp-label {
@@ -463,7 +508,7 @@ body {
 
 .mp-opp-board-container {
   border: 1px solid rgba(255,255,255,0.06);
-  border-radius: var(--radius) var(--radius) 0 0;
+  border-radius: 0;
   overflow: hidden;
   background: var(--board);
   box-shadow:
@@ -471,20 +516,16 @@ body {
     0 20px 60px rgba(0,0,0,0.5);
 }
 
+.mp-self-board-container {
+  border-radius: 0;
+}
+
+.game-wrapper--mp .mp-self-board-container,
+.game-wrapper--mp .mp-opp-board-container {
+  border-radius: 0;
+}
+
 #opp-board { display: block; }
-
-.mp-opp-stats {
-  display: flex;
-  gap: 16px;
-  font-size: 0.8rem;
-  color: var(--muted);
-  letter-spacing: 0.08em;
-}
-
-.mp-opp-stats span span {
-  color: var(--text);
-  font-weight: 600;
-}
 
 /* ─── Multiplayer: Overlays ───────────────────────────────────────────────── */
 
