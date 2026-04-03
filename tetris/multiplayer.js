@@ -10,7 +10,6 @@ const MP = (() => {
   const CODE_CHARS     = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
   const EXPIRY_MS      = 24 * 60 * 60 * 1000; // 24 h
   const SYNC_THROTTLE  = 80; // ms — max ~12 writes/s per player
-  const CLIENT_ID_KEY  = 'tetris_mp_client_id';
 
   let _code         = null;  // active room code
   let _slot         = null;  // 'player1' | 'player2'
@@ -334,17 +333,9 @@ const MP = (() => {
   }
 
   function _getClientId() {
-    try {
-      const existing = sessionStorage.getItem(CLIENT_ID_KEY);
-      if (existing) return existing;
-      const next = (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function')
-        ? globalThis.crypto.randomUUID()
-        : `mp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-      sessionStorage.setItem(CLIENT_ID_KEY, next);
-      return next;
-    } catch (_) {
-      return `mp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-    }
+    return (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function')
+      ? globalThis.crypto.randomUUID()
+      : `mp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
   }
 
   function _toMillis(value) {
