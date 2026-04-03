@@ -6,3 +6,4 @@ Original prompt: if one of the users hits back on the browser, the game receives
 - 2026-04-03: Verified `node --check` passes for `tetris/main.js` and `tetris/multiplayer.js`.
 - 2026-04-03: Attempted the required Playwright smoke test via the local skill harness; blocked because the local environment does not have the `playwright` package installed for the skill client.
 - 2026-04-03: Fixed quick-match self-skip logic so two tabs on the same origin no longer get treated as the same player purely because they share the same saved name; matchmaking now uses a per-tab client id.
+- 2026-04-03: On branch `codex/tetris-quickmatch-atomic`, replaced public quick match with a transactional queue-doc flow so one client atomically owns the current waiting public room and the next client atomically claims it instead of both creating separate rooms.
