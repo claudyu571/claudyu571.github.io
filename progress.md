@@ -5,3 +5,4 @@ Original prompt: if one of the users hits back on the browser, the game receives
 - 2026-04-03: Wired the gameplay listener to detect a stale opponent during `playing` and claim a forfeit win once the opponent's `lastSeenAt` stops advancing for 12 seconds.
 - 2026-04-03: Verified `node --check` passes for `tetris/main.js` and `tetris/multiplayer.js`.
 - 2026-04-03: Attempted the required Playwright smoke test via the local skill harness; blocked because the local environment does not have the `playwright` package installed for the skill client.
+- 2026-04-03: Fixed quick-match self-skip logic so two tabs on the same origin no longer get treated as the same player purely because they share the same saved name; matchmaking now uses a per-tab client id.

@@ -10,6 +10,7 @@ const MP = (() => {
   const CODE_CHARS     = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
   const EXPIRY_MS      = 24 * 60 * 60 * 1000; // 24 h
   const SYNC_THROTTLE  = 80; // ms — max ~12 writes/s per player
+  const CLIENT_ID_KEY  = 'tetris_mp_client_id';
 
   let _code         = null;  // active room code
   let _slot         = null;  // 'player1' | 'player2'
@@ -17,6 +18,7 @@ const MP = (() => {
   let _syncTimer    = null;
   let _pendingState = null;
   let _cachedStatus = null;  // last-known room status (avoids async get() on leave)
+  const _clientId   = _getClientId();
 
   // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -49,6 +51,7 @@ const MP = (() => {
           isPublic: isPublic,
           player1: {
             name:      _sanitizeName(playerName, 'PLAYER1'),
+            clientId:  _clientId,
             ready:     false,
             gameState: null,
             lastSeenAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -102,6 +105,7 @@ const MP = (() => {
         status:  'lobby',
         player2: {
           name:      _sanitizeName(playerName, 'PLAYER2'),
+          clientId:  _clientId,
           ready:     false,
           gameState: null,
           lastSeenAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -168,7 +172,7 @@ const MP = (() => {
       for (const doc of snap.docs) {
         const d = doc.data();
         // Skip own room if somehow still open
-        if (d.player1 && d.player1.name === _sanitizeName(playerName, 'PLAYER')) continue;
+        if (d.player1 && d.player1.clientId === _clientId) continue;
         // Try to join atomically
         const result = await joinRoom(doc.id, playerName);
         if (result.ok) return result;
@@ -327,6 +331,20 @@ const MP = (() => {
   function _sanitizeName(name, fallback) {
     const n = (name || '').trim().slice(0, 12).toUpperCase();
     return n || fallback;
+  }
+
+  function _getClientId() {
+    try {
+      const existing = sessionStorage.getItem(CLIENT_ID_KEY);
+      if (existing) return existing;
+      const next = (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function')
+        ? globalThis.crypto.randomUUID()
+        : `mp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      sessionStorage.setItem(CLIENT_ID_KEY, next);
+      return next;
+    } catch (_) {
+      return `mp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    }
   }
 
   function _toMillis(value) {

@@ -425,7 +425,7 @@ body {
   justify-content: center;
   align-items: flex-start;
   gap: 12px;
-  padding: 0 104px 10px 10px;
+  padding: 0 104px 10px 104px;
   min-height: 34px;
 }
 
