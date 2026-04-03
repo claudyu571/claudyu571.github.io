@@ -942,17 +942,23 @@ function gameLoop(timestamp) {
 
 const keysDown = new Set();
 
+function isVisible(el) {
+  return !!el && !el.hidden;
+}
+
 function handleKeyDown(e) {
   if (keysDown.has(e.code)) return; // prevent repeat for instant actions
   keysDown.add(e.code);
 
   if (state === 'MENU') {
-    if (e.code === 'Enter' || e.code === 'Space') startGame();
+    const singlePlayerMenuVisible = isVisible(overlayMenu) && !isVisible(overlayMpMenu) && !isVisible(overlayMpJoin) &&
+      !isVisible(overlayMpWaiting) && !isVisible(overlayMpLobby) && !isVisible(overlayMpResult);
+    if (singlePlayerMenuVisible && (e.code === 'Enter' || e.code === 'Space')) startGame();
     return;
   }
 
   if (state === 'GAME_OVER') {
-    if (e.code === 'Enter' || e.code === 'Space') {
+    if (isVisible(overlayGameOver) && (e.code === 'Enter' || e.code === 'Space')) {
       if (document.activeElement !== elNameInput) startGame();
     }
     return;
