@@ -395,6 +395,83 @@ body {
   .mp-opponent-wrap { display: none !important; }
 }
 
+/* ─── Multiplayer: Boards wrapper ────────────────────────────────────────── */
+.mp-boards-wrap {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--gap);
+  flex-shrink: 0;
+}
+
+/* Label row above each board — hidden in single-player */
+.mp-board-label {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 4px;
+}
+
+.game-wrapper--mp .mp-board-label {
+  display: flex;
+}
+
+.mp-board-label--top {
+  width: 100%;
+  position: relative;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0 104px 10px 10px;
+  min-height: 34px;
+}
+
+.mp-board-label-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.mp-board-meta {
+  position: absolute;
+  top: 0;
+  right: 10px;
+  display: flex;
+  gap: 12px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.mp-board-meta span span {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Column wrapper for player's own board */
+.mp-board-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.game-wrapper--mp .mp-board-shell {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 0;
+  padding: 8px 0 0;
+  backdrop-filter: blur(10px);
+}
+
 /* ─── Multiplayer: Opponent Board ────────────────────────────────────────── */
 .mp-opponent-wrap {
   display: none; /* hidden until multiplayer game starts */
@@ -408,21 +485,18 @@ body {
   display: flex;
 }
 
-.mp-opp-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
+.mp-opp-label-wrap {
+  gap: 12px;
 }
 
 .mp-opp-label {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   color: var(--muted);
   letter-spacing: 0.14em;
 }
 
 .mp-opp-name {
-  font-size: 0.85rem;
+  font-size: 1rem;
   color: var(--accent);
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -433,26 +507,25 @@ body {
 }
 
 .mp-opp-board-container {
-  border: 1px solid rgba(116,214,128,0.18);
-  border-radius: var(--radius) var(--radius) 0 0;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 0;
   overflow: hidden;
-  background: #09110e;
+  background: var(--board);
+  box-shadow:
+    0 0 40px rgba(116, 214, 128, 0.06),
+    0 20px 60px rgba(0,0,0,0.5);
+}
+
+.mp-self-board-container {
+  border-radius: 0;
+}
+
+.game-wrapper--mp .mp-self-board-container,
+.game-wrapper--mp .mp-opp-board-container {
+  border-radius: 0;
 }
 
 #opp-board { display: block; }
-
-.mp-opp-stats {
-  display: flex;
-  gap: 12px;
-  font-size: 0.72rem;
-  color: var(--muted);
-  letter-spacing: 0.08em;
-}
-
-.mp-opp-stats span span {
-  color: var(--text);
-  font-weight: 600;
-}
 
 /* ─── Multiplayer: Overlays ───────────────────────────────────────────────── */
 
