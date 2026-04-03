@@ -51,6 +51,7 @@ const MP = (() => {
             name:      _sanitizeName(playerName, 'PLAYER1'),
             ready:     false,
             gameState: null,
+            lastSeenAt: firebase.firestore.FieldValue.serverTimestamp(),
           },
           player2:       null,
           winner:        null,
@@ -103,6 +104,7 @@ const MP = (() => {
           name:      _sanitizeName(playerName, 'PLAYER2'),
           ready:     false,
           gameState: null,
+          lastSeenAt: firebase.firestore.FieldValue.serverTimestamp(),
         },
         lastActivity: firebase.firestore.FieldValue.serverTimestamp(),
       });
@@ -119,6 +121,7 @@ const MP = (() => {
     if (!_code || !_slot) return;
     await ref().update({
       [`${_slot}.ready`]:  isReady,
+      [`${_slot}.lastSeenAt`]: firebase.firestore.FieldValue.serverTimestamp(),
       lastActivity: firebase.firestore.FieldValue.serverTimestamp(),
     }).catch(() => {});
   }
@@ -127,6 +130,7 @@ const MP = (() => {
     if (!_code) return;
     await ref().update({
       status: 'playing',
+      [`${_slot}.lastSeenAt`]: firebase.firestore.FieldValue.serverTimestamp(),
       lastActivity: firebase.firestore.FieldValue.serverTimestamp(),
     }).catch(() => {});
   }
@@ -190,6 +194,7 @@ const MP = (() => {
       _pendingState = null;
       ref().update({
         [`${_slot}.gameState`]: s,
+        [`${_slot}.lastSeenAt`]: firebase.firestore.FieldValue.serverTimestamp(),
         lastActivity: firebase.firestore.FieldValue.serverTimestamp(),
       }).catch(() => {});
     }, SYNC_THROTTLE);
@@ -201,6 +206,7 @@ const MP = (() => {
     if (_syncTimer) { clearTimeout(_syncTimer); _syncTimer = null; }
     return ref().update({
       [`${_slot}.gameState`]: state,
+      [`${_slot}.lastSeenAt`]: firebase.firestore.FieldValue.serverTimestamp(),
       lastActivity: firebase.firestore.FieldValue.serverTimestamp(),
     }).catch(() => {});
   }
@@ -220,6 +226,33 @@ const MP = (() => {
         });
       }
     } catch (_) {}
+  }
+
+  async function claimForfeit(staleSlot, winnerSlot, expectedLastSeenMs) {
+    if (!_code) return { ok: false };
+    try {
+      await db.runTransaction(async tx => {
+        const roomRef = ref();
+        const snap = await tx.get(roomRef);
+        if (!snap.exists) return;
+
+        const room = snap.data();
+        if (room.status !== 'playing' || room.winner) return;
+
+        const currentLastSeen = _toMillis(room?.[staleSlot]?.lastSeenAt);
+        if (currentLastSeen === null) return;
+        if (currentLastSeen > expectedLastSeenMs) return;
+
+        tx.update(roomRef, {
+          status: 'finished',
+          winner: winnerSlot,
+          lastActivity: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
   }
 
   // ─── Realtime listener ─────────────────────────────────────────────────────
@@ -296,6 +329,14 @@ const MP = (() => {
     return n || fallback;
   }
 
+  function _toMillis(value) {
+    if (!value) return null;
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    if (typeof value === 'number') return value;
+    if (value.seconds != null) return value.seconds * 1000;
+    return null;
+  }
+
   async function _pruneExpired() {
     const cutoff = new Date(Date.now() - EXPIRY_MS);
     const stale = await col().where('lastActivity', '<', cutoff).limit(10).get();
@@ -319,6 +360,7 @@ const MP = (() => {
     syncGameState,
     syncGameStateNow,
     signalGameOver,
+    claimForfeit,
     subscribe,
     unsubscribe,
     leaveRoom,

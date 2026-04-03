@@ -15,6 +15,7 @@ const TOAST_DURATION = 800; // ms
 const LEVEL_TOAST_DURATION = 1200;
 const MP_SYNC_INTERVAL = 900; // ms between multiplayer updates while state is changing
 const MP_HEARTBEAT_INTERVAL = 3000; // ms between idle keepalive updates
+const MP_STALE_OPPONENT_MS = 12000; // ms before a silent opponent is treated as disconnected
 
 const LINE_LABELS = ['', 'SINGLE', 'DOUBLE', 'TRIPLE', 'TETRIS!'];
 
@@ -52,6 +53,7 @@ let mpCountdownInterval = null; // setInterval handle for the countdown
 let mpStateVersion = 0;        // increments when local multiplayer state changes materially
 let mpLastSyncVersion = -1;    // last version pushed to Firestore
 let mpLastSyncKey = '';        // fingerprint of the last pushed multiplayer state
+let mpForfeitClaimInFlight = false;
 
 // ─── DOM References ───────────────────────────────────────────────────────────
 
@@ -1076,6 +1078,7 @@ function startGame() {
   mpStateVersion = 0;
   mpLastSyncVersion = -1;
   mpLastSyncKey = '';
+  mpForfeitClaimInFlight = false;
   keysDown.clear();
 
   bag = createBag();
@@ -1238,6 +1241,7 @@ function mpStartGame(room) {
   if (elOppScore)  elOppScore.textContent  = '000000';
   if (elOppLevel)  elOppLevel.textContent  = '0';
   opponentState = null;
+  mpForfeitClaimInFlight = false;
 
   // If player 1, write 'playing' status; both players' listeners will catch it
   if (MP.playerSlot === 'player1') {
@@ -1269,6 +1273,29 @@ function mpShowResult(won, oppFinalScore) {
   showOverlay('mp-result');
 }
 
+function getTimestampMillis(value) {
+  if (!value) return null;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value === 'number') return value;
+  if (value.seconds != null) return value.seconds * 1000;
+  return null;
+}
+
+function maybeClaimDisconnectedOpponent(room, oppSlot, oppData) {
+  if (!multiplayerMode || state !== 'PLAYING' || room.status !== 'playing' || !oppData || mpForfeitClaimInFlight) return;
+
+  const lastSeenAt = getTimestampMillis(oppData.lastSeenAt);
+  if (lastSeenAt === null) return;
+  if ((Date.now() - lastSeenAt) < MP_STALE_OPPONENT_MS) return;
+
+  mpForfeitClaimInFlight = true;
+  MP.claimForfeit(oppSlot, MP.playerSlot, lastSeenAt)
+    .catch(() => {})
+    .finally(() => {
+      mpForfeitClaimInFlight = false;
+    });
+}
+
 async function mpExitToMenu() {
   cancelAnimationFrame(animFrame);
   mpCancelCountdown();
@@ -1276,6 +1303,7 @@ async function mpExitToMenu() {
   multiplayerMode = false;
   opponentState   = null;
   mpReady         = false;
+  mpForfeitClaimInFlight = false;
   if (elMpMyLabel) elMpMyLabel.innerHTML = '';
   document.querySelector('.game-wrapper').classList.remove('game-wrapper--mp');
   if (elMpOpponentWrap) elMpOpponentWrap.setAttribute('aria-hidden', 'true');
@@ -1327,6 +1355,8 @@ function handleRoomUpdate({ data, deleted }) {
     mpCancelCountdown();
     mpStartGame(room);
   }
+
+  maybeClaimDisconnectedOpponent(room, oppSlot, oppData);
 
   // Game finished
   if (room.status === 'finished' && (state === 'PLAYING' || state === 'GAME_OVER')) {
