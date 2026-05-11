@@ -1,0 +1,11 @@
+Original prompt: analyze /Users/qa_claudius/Documents/AI/Claude/HAPICS_Page and add a new game: solitaire. use the same theme
+
+- 2026-05-10: Confirmed the repo uses static vanilla HTML/CSS/JS games with a shared dark green HAPICS theme. The existing `solitaire` directory was empty.
+- 2026-05-10: Added a static Klondike Solitaire implementation with matching HAPICS layout tokens, draw 1/draw 3 modes, click-to-move interaction, undo, hints, auto foundation moves, local best tracking, and test hooks.
+- 2026-05-10: Added Solitaire to the root `index.html` game grid and extended the landing-page card entrance delay for the fourth game.
+- 2026-05-10: Verified `node --check` for `solitaire/logic.js` and `solitaire/main.js`, `git diff --check`, the develop-web-game Playwright harness, targeted Playwright selector checks, and a real legal tableau move through clicks. No console or page errors were reported.
+- 2026-05-10: Checked card sizing in the Solitaire panel across 1280, 390, 360, and 320px viewport widths. Desktop remains 82x113px; mobile now scales down to 39x54, 35x48, and 32x44px respectively with 0px board overflow.
+- 2026-05-10: Refocused Solitaire sizing on desktop/laptop. Raised desktop cards to 96x132px with larger rank/suit text, verified 1280x720, 1366x768, 1440x900, and 1600x900 all have 0px board overflow and no browser console errors.
+- 2026-05-11: Adjusted desktop Solitaire rows so stock/waste, foundations, and tableau use flexible seven-column lanes centered within a max 1180px play band. Verified 1280x720, 1440x900, and 2048x999 have 0px board overflow and no browser console errors.
+- 2026-05-11: Removed the conservative desktop row cap and increased desktop card sizing to `clamp(100px, 7.8vw, 160px)`, with tighter stack spacing so cards scale to the wide board without clipping. Verified 1280x720, 1440x900, and 2048x999; web-game harness passed with no console/page errors.
+- 2026-05-11: Reduced excessive horizontal spacing by changing the desktop play rows to fixed card-width columns with `justify-content: space-between` inside `width: min(100%, clamp(980px, 66vw, 1320px))`. Wide-screen gaps are now ~33px instead of stretched `1fr` lanes, while cards remain up to 160px wide.
