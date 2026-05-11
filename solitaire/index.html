@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solitaire</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <section class="play-area panel" aria-label="Solitaire game">
+      <div class="play-header">
+        <div>
+          <a href="/" class="back-link">&larr; All Games</a>
+          <p class="eyebrow" id="mode-eyebrow">Draw One</p>
+          <h1>Solitaire</h1>
+        </div>
+        <button id="new-game-btn" class="secondary-btn" type="button">New Deal</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat-card">
+          <span class="stat-label">Time</span>
+          <span id="timer" class="stat-value">0:00</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Moves</span>
+          <span id="moves" class="stat-value">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Stock</span>
+          <span id="stock-count" class="stat-value">24</span>
+        </div>
+        <div class="stat-card status-card">
+          <span class="stat-label">Status</span>
+          <span id="status" class="stat-value">Playing</span>
+        </div>
+      </div>
+
+      <div id="board" class="board" aria-label="Klondike Solitaire board">
+        <section class="top-row" aria-label="Stock, waste, and foundations">
+          <div id="stock-pile" class="pile-host" data-zone="stock"></div>
+          <div id="waste-pile" class="pile-host" data-zone="waste"></div>
+          <div id="foundation-row" class="foundation-row" aria-label="Foundations"></div>
+        </section>
+
+        <section id="tableau" class="tableau" aria-label="Tableau piles"></section>
+      </div>
+
+      <p id="message" class="board-message" aria-live="polite">
+        Move Aces to the foundations. Build tableau piles downward in alternating colors.
+      </p>
+    </section>
+
+    <aside class="sidebar">
+      <section class="panel controls-panel">
+        <div class="mode-toggle" role="group" aria-label="Draw mode">
+          <button id="draw-one-btn" class="mode-toggle-btn active" type="button" aria-pressed="true">Draw 1</button>
+          <button id="draw-three-btn" class="mode-toggle-btn" type="button" aria-pressed="false">Draw 3</button>
+        </div>
+
+        <div class="controls">
+          <button id="draw-btn" type="button">Draw</button>
+          <button id="undo-btn" class="secondary-btn" type="button">Undo</button>
+          <button id="auto-btn" class="secondary-btn" type="button">Auto Move</button>
+          <button id="hint-btn" class="secondary-btn" type="button">Hint</button>
+        </div>
+
+        <p class="help">
+          Click a face-up card, then click a destination pile. Double-click a card to send it to a foundation when legal.
+        </p>
+        <p class="help">
+          Shortcuts: <kbd>D</kbd> draw, <kbd>U</kbd> undo, <kbd>H</kbd> hint, <kbd>N</kbd> new deal, <kbd>Esc</kbd> clear selection.
+        </p>
+      </section>
+
+      <section class="panel progress-panel" aria-label="Foundation progress">
+        <div class="leaderboard-header">
+          <h2>Foundations</h2>
+          <span id="best-score" class="leaderboard-note">Best -</span>
+        </div>
+        <div id="foundation-status" class="foundation-status"></div>
+      </section>
+
+      <section class="panel rules-panel">
+        <h2>Rules</h2>
+        <ul class="rules-list">
+          <li>Foundations build from Ace to King by suit.</li>
+          <li>Tableau piles build down by alternating red and black cards.</li>
+          <li>Only Kings can move into empty tableau spaces.</li>
+          <li>Use Undo freely while learning the layout.</li>
+        </ul>
+      </section>
+    </aside>
+  </main>
+
+  <div id="win-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="win-title">
+    <div class="modal">
+      <p class="eyebrow">Complete</p>
+      <h2 id="win-title">You Won Solitaire</h2>
+      <p id="win-message">Every suit made it home.</p>
+      <div class="modal-actions">
+        <button id="play-again-btn" type="button">Play Again</button>
+        <button id="close-win-btn" class="secondary-btn" type="button">Keep Looking</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="logic.js" defer></script>
+  <script src="main.js" defer></script>
+</body>
+</html>
