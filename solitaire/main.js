@@ -35,9 +35,13 @@
 
   let state = null;
   let selected = null;
+  let dragState = null;
+  let dragDropTarget = null;
   let history = [];
   let timerId = 0;
   let currentMessage = "Move Aces to the foundations. Build tableau piles downward in alternating colors.";
+  let suppressNextClick = false;
+  let suppressNextDblClick = false;
 
   function readSavedDrawMode() {
     const saved = Number(localStorage.getItem(MODE_KEY));
@@ -87,6 +91,15 @@
   function setMessage(message) {
     currentMessage = message;
     els.message.textContent = message;
+  }
+
+  function rejectBoardMoveWhenInactive() {
+    if (state?.status === "Playing") return false;
+
+    selected = null;
+    setMessage("This deal is complete. Start a new deal to play again.");
+    render();
+    return true;
   }
 
   function pushHistory() {
@@ -172,6 +185,8 @@
   }
 
   function selectSource(source, pile = null, index = null, suit = null) {
+    if (rejectBoardMoveWhenInactive()) return;
+
     if (source === "waste") {
       const card = Logic.topCard(state.waste);
       if (!card) {
@@ -221,6 +236,15 @@
     render();
   }
 
+  function setSelectedSource(sourceInfo) {
+    selected = {
+      source: sourceInfo.source,
+      pile: sourceInfo.pile,
+      index: sourceInfo.index,
+      suit: sourceInfo.suit,
+    };
+  }
+
   function finishMove(message) {
     selected = null;
     state.moves += 1;
@@ -239,6 +263,8 @@
   }
 
   function attemptMoveSelectedToTableau(pileIndex) {
+    if (rejectBoardMoveWhenInactive()) return;
+
     if (!selected) {
       setMessage("Select a face-up card first.");
       return;
@@ -268,6 +294,8 @@
   }
 
   function attemptMoveSelectedToFoundation(suit) {
+    if (rejectBoardMoveWhenInactive()) return;
+
     if (!selected) {
       setMessage("Select a single face-up card first.");
       return;
@@ -295,6 +323,43 @@
     card.faceUp = true;
     state.foundations[suit].push(card);
     finishMove(`Moved ${Logic.cardLabel(card)} to the ${Logic.SUIT_NAMES[suit]} foundation.`);
+  }
+
+  function canMoveSelectedToDropTarget(dropTarget) {
+    if (!selected || !dropTarget) return false;
+
+    const movingCards = getSelectedCards();
+    if (dropTarget.target === "tableau") {
+      if (selected.source === "tableau" && selected.pile === dropTarget.pile) return false;
+      return Logic.canPlaceOnTableau(movingCards, state.tableau[dropTarget.pile]);
+    }
+
+    if (dropTarget.target === "foundation") {
+      const card = movingCards[0];
+      return (
+        movingCards.length === 1 &&
+        card?.suit === dropTarget.suit &&
+        Logic.canPlaceOnFoundation(card, state.foundations[dropTarget.suit])
+      );
+    }
+
+    return false;
+  }
+
+  function moveSelectedToDropTarget(dropTarget) {
+    if (!dropTarget) return false;
+
+    if (dropTarget.target === "tableau") {
+      attemptMoveSelectedToTableau(dropTarget.pile);
+      return true;
+    }
+
+    if (dropTarget.target === "foundation") {
+      attemptMoveSelectedToFoundation(dropTarget.suit);
+      return true;
+    }
+
+    return false;
   }
 
   function drawFromStock() {
@@ -457,21 +522,282 @@
     setMessage(findHint());
   }
 
-  function autoMoveSourceToFoundation(source, pile = null, index = null, suit = null) {
+  function getCardSourceInfo(cardEl) {
+    const source = cardEl.dataset.source;
+    if (!source || source === "stock" || cardEl.classList.contains("face-down")) {
+      return null;
+    }
+
+    const pile = cardEl.dataset.pile ? Number(cardEl.dataset.pile) : null;
+    const index = cardEl.dataset.index ? Number(cardEl.dataset.index) : null;
+    const suit = cardEl.dataset.suit || null;
+    const sourceInfo = { source, pile, index, suit };
+
+    if (source === "waste") {
+      return Logic.topCard(state.waste) ? sourceInfo : null;
+    }
+
+    if (source === "foundation") {
+      return Logic.topCard(state.foundations[suit]) ? sourceInfo : null;
+    }
+
+    if (source === "tableau") {
+      const movingCards = state.tableau[pile]?.slice(index) || [];
+      return Logic.canMoveRun(movingCards) ? sourceInfo : null;
+    }
+
+    return null;
+  }
+
+  function getDropTargetAt(x, y) {
+    const element = document.elementFromPoint(x, y);
+    if (!element || !els.board.contains(element)) return null;
+
+    const foundationElement = element.closest("[data-target='foundation'], .card[data-source='foundation']");
+    if (foundationElement && els.foundationRow.contains(foundationElement)) {
+      return {
+        target: "foundation",
+        suit: foundationElement.dataset.suit,
+        element: foundationElement.closest(".pile-host") || foundationElement,
+      };
+    }
+
+    const tableauPile = element.closest(".tableau-pile");
+    if (tableauPile && els.tableau.contains(tableauPile)) {
+      return {
+        target: "tableau",
+        pile: Number(tableauPile.dataset.pile),
+        element: tableauPile,
+      };
+    }
+
+    const tableauSlot = element.closest("[data-target='tableau']");
+    if (tableauSlot) {
+      return {
+        target: "tableau",
+        pile: Number(tableauSlot.dataset.pile),
+        element: tableauSlot.closest(".tableau-pile") || tableauSlot,
+      };
+    }
+
+    return null;
+  }
+
+  function clearDragDropTarget() {
+    if (dragDropTarget?.element) {
+      dragDropTarget.element.classList.remove("drag-over", "drag-over-invalid");
+    }
+    dragDropTarget = null;
+  }
+
+  function updateDragDropTarget(pointerEvent) {
+    clearDragDropTarget();
+
+    if (!dragState?.isDragging) return;
+
+    const dropTarget = getDropTargetAt(pointerEvent.clientX, pointerEvent.clientY);
+    if (!dropTarget) return;
+
+    setSelectedSource(dragState.sourceInfo);
+    const isLegal = canMoveSelectedToDropTarget(dropTarget);
+    dropTarget.element.classList.add(isLegal ? "drag-over" : "drag-over-invalid");
+    dragDropTarget = dropTarget;
+  }
+
+  function getDragCards(sourceInfo) {
+    if (sourceInfo.source === "waste") {
+      const card = Logic.topCard(state.waste);
+      return card ? [card] : [];
+    }
+
+    if (sourceInfo.source === "foundation") {
+      const card = Logic.topCard(state.foundations[sourceInfo.suit]);
+      return card ? [card] : [];
+    }
+
+    return state.tableau[sourceInfo.pile].slice(sourceInfo.index);
+  }
+
+  function getStackOffset(cardEl) {
+    if (cardEl.dataset.source !== "tableau") return 0;
+
+    const nextCard = cardEl.nextElementSibling;
+    if (!nextCard?.classList.contains("card")) {
+      return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--stack-gap")) || 34;
+    }
+
+    return Math.max(24, nextCard.getBoundingClientRect().top - cardEl.getBoundingClientRect().top);
+  }
+
+  function createDragGhost(cardEl, sourceInfo) {
+    const cards = getDragCards(sourceInfo);
+    const cardRect = cardEl.getBoundingClientRect();
+    const stackOffset = getStackOffset(cardEl);
+    const ghost = document.createElement("div");
+    ghost.className = "drag-ghost";
+    ghost.style.width = `${cardRect.width}px`;
+    ghost.style.height = `${cardRect.height + Math.max(0, cards.length - 1) * stackOffset}px`;
+
+    cards.forEach((card, index) => {
+      const cardClone = createCardButton(card, { source: "drag", extraClass: "drag-card" });
+      cardClone.disabled = true;
+      cardClone.style.position = "absolute";
+      cardClone.style.left = "0";
+      cardClone.style.top = `${index * stackOffset}px`;
+      cardClone.style.width = `${cardRect.width}px`;
+      cardClone.style.height = `${cardRect.height}px`;
+      ghost.append(cardClone);
+    });
+
+    document.body.append(ghost);
+    return ghost;
+  }
+
+  function positionDragGhost(clientX, clientY) {
+    if (!dragState?.ghost) return;
+
+    dragState.ghost.style.transform = `translate3d(${clientX - dragState.offsetX}px, ${clientY - dragState.offsetY}px, 0)`;
+  }
+
+  function beginDragging(pointerEvent) {
+    if (!dragState || dragState.isDragging) return;
+
+    dragState.isDragging = true;
+    suppressNextClick = true;
+    selected = null;
+    dragState.sourceCard.classList.add("drag-source");
+    dragState.ghost = createDragGhost(dragState.sourceCard, dragState.sourceInfo);
+    positionDragGhost(pointerEvent.clientX, pointerEvent.clientY);
+    document.body.classList.add("is-card-dragging");
+    setMessage("Drag to a tableau pile or foundation.");
+  }
+
+  function handleCardPointerDown(event) {
+    if (event.button !== 0 || state.status !== "Playing") return;
+
+    const cardEl = event.target.closest(".card");
+    if (!cardEl || !els.board.contains(cardEl)) return;
+
+    const sourceInfo = getCardSourceInfo(cardEl);
+    if (!sourceInfo) return;
+
+    const rect = cardEl.getBoundingClientRect();
+    dragState = {
+      pointerId: event.pointerId,
+      sourceInfo,
+      sourceCard: cardEl,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      isDragging: false,
+      ghost: null,
+    };
+
+    cardEl.setPointerCapture?.(event.pointerId);
+  }
+
+  function handleCardPointerMove(event) {
+    if (!dragState || dragState.pointerId !== event.pointerId) return;
+
+    const moved = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY);
+    if (!dragState.isDragging && moved >= 6) {
+      beginDragging(event);
+    }
+
+    if (!dragState.isDragging) return;
+
+    event.preventDefault();
+    positionDragGhost(event.clientX, event.clientY);
+    updateDragDropTarget(event);
+  }
+
+  function finishCardPointerDrag(event) {
+    if (!dragState || dragState.pointerId !== event.pointerId) return;
+
+    const wasDragging = dragState.isDragging;
+    if (wasDragging) {
+      event.preventDefault();
+      setSelectedSource(dragState.sourceInfo);
+      const dropTarget = getDropTargetAt(event.clientX, event.clientY);
+      if (dropTarget && canMoveSelectedToDropTarget(dropTarget)) {
+        moveSelectedToDropTarget(dropTarget);
+      } else {
+        selected = null;
+        setMessage("Card returned. Drop it on a legal tableau pile or foundation.");
+        render();
+      }
+    }
+
+    dragState.sourceCard.releasePointerCapture?.(event.pointerId);
+    dragState.sourceCard.classList.remove("drag-source");
+    dragState.ghost?.remove();
+    document.body.classList.remove("is-card-dragging");
+    clearDragDropTarget();
+    dragState = null;
+
+    window.setTimeout(() => {
+      suppressNextClick = false;
+    }, 0);
+  }
+
+  function cancelCardDrag() {
+    if (!dragState) return;
+
+    dragState.sourceCard.classList.remove("drag-source");
+    dragState.ghost?.remove();
+    document.body.classList.remove("is-card-dragging");
+    clearDragDropTarget();
+    selected = null;
+    dragState = null;
+    suppressNextClick = false;
+    render();
+  }
+
+  function autoMoveSource(source, pile = null, index = null, suit = null) {
+    if (rejectBoardMoveWhenInactive()) return;
+
     selected = { source, pile, index, suit };
-    const card = getSelectedCards()[0];
+    const movingCards = getSelectedCards();
+    const card = movingCards[0];
     if (!card) {
       selected = null;
       return;
     }
 
-    if (Logic.canPlaceOnFoundation(card, state.foundations[card.suit])) {
+    if (source !== "foundation" && movingCards.length === 1 && Logic.canPlaceOnFoundation(card, state.foundations[card.suit])) {
       attemptMoveSelectedToFoundation(card.suit);
-    } else {
-      selected = null;
-      setMessage(`${Logic.cardLabel(card)} cannot move to a foundation yet.`);
-      render();
+      return;
     }
+
+    for (let targetPile = 0; targetPile < state.tableau.length; targetPile += 1) {
+      if (source === "tableau" && pile === targetPile) continue;
+
+      if (Logic.canPlaceOnTableau(movingCards, state.tableau[targetPile])) {
+        attemptMoveSelectedToTableau(targetPile);
+        return;
+      }
+    }
+
+    selected = null;
+    setMessage(`${Logic.cardLabel(card)} has no automatic move right now.`);
+    render();
+  }
+
+  function autoMoveCardElement(cardEl) {
+    const sourceInfo = getCardSourceInfo(cardEl);
+    if (!sourceInfo) {
+      selected = null;
+      setMessage(
+        cardEl.classList.contains("face-down")
+          ? "Face-down cards are revealed by clearing the cards above them."
+          : "That stack cannot move automatically yet."
+      );
+      render();
+      return;
+    }
+
+    autoMoveSource(sourceInfo.source, sourceInfo.pile, sourceInfo.index, sourceInfo.suit);
   }
 
   function handleCardClick(cardEl) {
@@ -556,6 +882,9 @@
     } else if (key === "f") {
       event.preventDefault();
       toggleFullscreen();
+    } else if (event.key === "Escape" && dragState) {
+      event.preventDefault();
+      cancelCardDrag();
     } else if (event.key === "Escape" && selected) {
       event.preventDefault();
       clearSelection("Selection cleared.");
@@ -579,6 +908,7 @@
   function createCardButton(card, options) {
     const button = document.createElement("button");
     button.type = "button";
+    button.draggable = false;
     button.className = `card ${card.faceUp ? Logic.cardColor(card) : "face-down"} ${options.extraClass || ""}`.trim();
     button.dataset.source = options.source;
     button.dataset.card = Logic.cardCode(card);
@@ -828,9 +1158,30 @@
   }
 
   function bindEvents() {
+    els.board.addEventListener("pointerdown", handleCardPointerDown);
+    els.board.addEventListener("pointermove", handleCardPointerMove);
+    els.board.addEventListener("pointerup", finishCardPointerDrag);
+    els.board.addEventListener("pointercancel", finishCardPointerDrag);
+
     els.board.addEventListener("click", (event) => {
+      if (suppressNextClick) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
       const card = event.target.closest(".card");
       if (card && card.dataset.source !== "stock") {
+        if (event.detail >= 2) {
+          event.preventDefault();
+          suppressNextDblClick = true;
+          autoMoveCardElement(card);
+          window.setTimeout(() => {
+            suppressNextDblClick = false;
+          }, 0);
+          return;
+        }
+
         handleCardClick(card);
         return;
       }
@@ -842,14 +1193,15 @@
     });
 
     els.board.addEventListener("dblclick", (event) => {
+      if (suppressNextDblClick) {
+        event.preventDefault();
+        return;
+      }
+
       const card = event.target.closest(".card");
       if (!card || card.dataset.source === "stock") return;
 
-      const source = card.dataset.source;
-      const pile = card.dataset.pile ? Number(card.dataset.pile) : null;
-      const index = card.dataset.index ? Number(card.dataset.index) : null;
-      const suit = card.dataset.suit || null;
-      autoMoveSourceToFoundation(source, pile, index, suit);
+      autoMoveCardElement(card);
     });
 
     els.drawBtn.addEventListener("click", drawFromStock);

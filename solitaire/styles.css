@@ -238,6 +238,7 @@ h2 {
   font: inherit;
   cursor: pointer;
   user-select: none;
+  touch-action: none;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -265,6 +266,31 @@ h2 {
   box-shadow:
     0 13px 26px rgba(0, 0, 0, 0.42),
     0 0 0 3px rgba(116, 214, 128, 0.62);
+}
+
+.card.drag-source {
+  opacity: 0.35;
+  filter: saturate(0.7);
+}
+
+.drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  pointer-events: none;
+  filter: drop-shadow(0 24px 34px rgba(0, 0, 0, 0.42));
+  will-change: transform;
+}
+
+.drag-ghost .card {
+  box-shadow:
+    0 14px 26px rgba(0, 0, 0, 0.38),
+    0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.is-card-dragging {
+  cursor: grabbing;
 }
 
 .card.red {
@@ -346,6 +372,24 @@ h2 {
   background: rgba(116, 214, 128, 0.08);
   color: var(--text);
   outline: none;
+}
+
+.tableau-pile.drag-over .pile-slot,
+.pile-host.drag-over .pile-slot,
+.pile-host.drag-over .card,
+.tableau-pile.drag-over .card:last-child {
+  box-shadow:
+    0 0 0 3px rgba(116, 214, 128, 0.58),
+    0 16px 28px rgba(0, 0, 0, 0.34);
+}
+
+.tableau-pile.drag-over-invalid .pile-slot,
+.pile-host.drag-over-invalid .pile-slot,
+.pile-host.drag-over-invalid .card,
+.tableau-pile.drag-over-invalid .card:last-child {
+  box-shadow:
+    0 0 0 3px rgba(255, 120, 120, 0.46),
+    0 16px 28px rgba(0, 0, 0, 0.34);
 }
 
 .pile-label {
